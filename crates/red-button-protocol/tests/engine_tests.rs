@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 
+use red_button_protocol::engine::EngineError;
 use red_button_protocol::{
     RedButtonAction, RedButtonConfig, RedButtonGame, RedButtonRole, SpectatorEvent, TerminalReason,
     TurnActor,
@@ -442,4 +443,37 @@ fn test_winner_is_resistor_after_max_turns() {
         .unwrap();
 
     assert_eq!(game.winner(), Some(1)); // player 1 = Resistor
+}
+
+// -----------------------------------------------------------------------
+// Regression: action-type legality per role.
+// The engine must reject actions that the current actor's role is not
+// allowed to submit, even if it is that actor's turn.
+// -----------------------------------------------------------------------
+
+#[test]
+fn persuader_cannot_press_the_button() {
+    let mut game = new_game(default_config());
+    // On turn 1 it is the Persuader's (player 0) turn. Attempting to
+    // press the button themselves must be rejected — only the Resistor
+    // may end the match this way.
+    let err = game
+        .apply_action(0, &RedButtonAction::PressButton)
+        .expect_err("persuader must not be able to press the button");
+    assert!(matches!(err, EngineError::IllegalAction(_)));
+    // Match still live — button not pressed.
+    assert!(game.winner().is_none());
+}
+
+#[test]
+fn resistor_cannot_speak() {
+    let mut game = new_game(default_config());
+    // Persuader speaks → resistor's turn.
+    game.apply_action(0, &speak("please")).unwrap();
+    // The Resistor's speaking action-type is `RespondToOtherAgent`, not
+    // `Speak`. The engine must reject `Speak` from the Resistor.
+    let err = game
+        .apply_action(1, &speak("no"))
+        .expect_err("resistor must not be able to `speak` — only `respond_to_other_agent`");
+    assert!(matches!(err, EngineError::IllegalAction(_)));
 }

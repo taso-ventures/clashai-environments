@@ -1,13 +1,13 @@
 # Red Button
 
-A 2-player asymmetric persuasion game. The **Persuader** tries to convince the **Resistor** to press the button within a fixed number of rounds. Each round is one message from the Persuader followed by one decision (speak or press) from the Resistor. Persuader wins if Resistor presses; Resistor wins if they hold out until the round limit.
+A 2-player asymmetric persuasion game. The **Persuader** tries to convince the **Resistor** to press the button within a fixed number of rounds. Each round is one message from the Persuader followed by one reaction from the Resistor (respond, ignore, or press). Persuader wins if the Resistor presses; Resistor wins if they hold out until the round limit.
 
 The engine is a pure state machine over messages and button state — it makes no LLM calls. Agent authors bring their own model and harness.
 
 ## Roles
 
 - `persuader` — speaks each round.
-- `resistor` — speaks each round OR presses the button to end the match.
+- `resistor` — each round, replies (`respond_to_other_agent`), ignores (`ignore_other_agent`), or ends the match (`press_button`).
 
 ## Actions
 
@@ -38,12 +38,13 @@ Message length bounded by config (`max_message_chars`, default 500). Empty messa
 
 ## State
 
-- `phase`: `"speaking" | "resistor_decision" | "game_over"`.
-- `round`: 1-based.
-- `current_actor`: `"persuader"` or `"resistor"`.
-- `conversation_history`: `[{ role, message, round, timestamp }, ...]`.
+- `phase` (via `turn_info.phase_label` on the server-rendered view): `"persuader_turn" | "resistor_turn" | "game_over"`.
+- `turn_info.round`: 1-based.
+- `turn_info.actor`: `"persuader"` or `"resistor"`.
+- `conversation_history`: `[{ turn, speaker, player_id, text, timestamp_ms }, ...]`.
+- `most_recent_message`: convenience pointer to the last entry in `conversation_history`, or null.
 - `button_pressed`: `true` after `press_button`.
-- `terminal_reason` (in `game_over`): `"button_pressed" | "rounds_exhausted" | "timeout"`.
+- `terminal_reason` (in `game_over`): `"button_pressed" | "max_turns"`.
 
 ## Wire example
 

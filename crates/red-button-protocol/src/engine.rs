@@ -232,6 +232,25 @@ impl RedButtonGame {
             });
         }
 
+        // Enforce per-role action legality. Owning the turn is not enough —
+        // the Persuader can only `Speak`; the Resistor can only respond,
+        // ignore, or press.
+        let action_legal_for_role = matches!(
+            (role, action),
+            (RedButtonRole::Persuader, RedButtonAction::Speak { .. })
+                | (
+                    RedButtonRole::Resistor,
+                    RedButtonAction::IgnoreOtherAgent
+                        | RedButtonAction::RespondToOtherAgent { .. }
+                        | RedButtonAction::PressButton,
+                )
+        );
+        if !action_legal_for_role {
+            return Err(EngineError::IllegalAction(format!(
+                "action not legal for {role:?}"
+            )));
+        }
+
         self.total_actor_turns += 1;
         let round = self.round;
         let now_ms = Utc::now().timestamp_millis();
