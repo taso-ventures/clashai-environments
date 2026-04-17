@@ -87,28 +87,32 @@ fn word_selection_is_deterministic_and_valid_set_contains_both_lists() {
 }
 
 #[test]
-fn lobby_requires_one_message_per_player_then_enters_guessing() {
+fn lobby_accepts_chat_and_first_guess_advances_phase() {
+    // Lobby is optional pre-game chat. Silent players do not block the
+    // match — the first guess from any player advances to Guessing.
     let mut game = game_with_target("crane");
     let state = game.full_state();
     assert_eq!(state.phase, WordlePhase::Lobby);
     assert_eq!(state.turn, 0);
-    assert_eq!(state.target_word, None, "target_word hidden during lobby");
 
-    assert_eq!(game.legal_actions(0), vec![send("")]);
+    // In Lobby every player's legal-actions set includes both chat and guess.
+    let actions = game.legal_actions(0);
+    assert!(actions
+        .iter()
+        .any(|a| matches!(a, WordleAction::SendMessage { .. })));
+    assert!(actions
+        .iter()
+        .any(|a| matches!(a, WordleAction::Guess { .. })));
+
     game.apply_action(0, &send("hello")).unwrap();
-    game.apply_action(1, &send("hi")).unwrap();
+    // Chat keeps the phase in Lobby.
+    assert_eq!(game.full_state().phase, WordlePhase::Lobby);
 
-    let mid = game.full_state();
-    assert_eq!(mid.phase, WordlePhase::Lobby);
-
-    game.apply_action(2, &send("ready")).unwrap();
+    // First guess transitions to Guessing — even though players 1 and 2 never spoke.
+    game.apply_action(0, &guess("crane")).unwrap();
     let after = game.full_state();
     assert_eq!(after.phase, WordlePhase::Guessing);
     assert_eq!(after.turn, 1);
-    assert_eq!(
-        after.target_word, None,
-        "target_word hidden during guessing"
-    );
 }
 
 #[test]
@@ -192,39 +196,54 @@ fn all_guessers_guessing_advances_turn_and_enforces_once_per_turn() {
 }
 
 #[test]
-fn enters_banter_after_max_guesses_then_game_over_after_all_banter_messages() {
+fn enters_banter_after_max_guesses_then_game_over_when_budget_exhausted() {
+    // Banter ends once the total chat budget is exhausted (default
+    // max_messages_per_chat_phase * player_count) — it no longer waits
+    // for every player to speak.
     let mut game = game_with_target("civic");
-    game.apply_action(0, &send("go")).unwrap();
-    game.apply_action(1, &send("go")).unwrap();
-    game.apply_action(2, &send("go")).unwrap();
+    // Kick off Guessing directly.
+    game.apply_action(0, &guess("crane")).unwrap();
 
-    for _ in 0..6 {
-        game.apply_action(0, &guess("crane")).unwrap();
+    // Play out the remaining turns. Player 0 already used turn 1.
+    for _ in 0..5 {
+        // Remaining guessers this turn (p1, p2) finish their guess first,
+        // then p0 starts the next turn's round of guesses.
+        if !game.full_state().players[1].solved {
+            game.apply_action(1, &guess("grape")).unwrap();
+        }
+        if !game.full_state().players[2].solved {
+            game.apply_action(2, &guess("joker")).unwrap();
+        }
+        if !game.full_state().players[0].solved {
+            game.apply_action(0, &guess("crane")).unwrap();
+        }
+    }
+    // Finish p1 / p2's final guesses so all are eliminated.
+    while !game.full_state().players[1].solved && !game.full_state().players[1].eliminated {
         game.apply_action(1, &guess("grape")).unwrap();
+    }
+    while !game.full_state().players[2].solved && !game.full_state().players[2].eliminated {
         game.apply_action(2, &guess("joker")).unwrap();
     }
 
     let s = game.full_state();
     assert_eq!(s.phase, WordlePhase::Banter);
     assert_eq!(s.terminal_reason, Some(TerminalReason::MaxGuessesExhausted));
-    assert_eq!(
-        s.target_word,
-        Some("civic".to_string()),
-        "target_word revealed during banter"
-    );
+    // Each player's target is stored on their own progress entry.
+    for p in &s.players {
+        assert_eq!(p.target_word, "civic");
+    }
 
-    game.apply_action(0, &send("gg")).unwrap();
-    game.apply_action(1, &send("gg")).unwrap();
-    game.apply_action(2, &send("gg")).unwrap();
+    // Exhaust the Banter budget: default is 3 per player * 3 players = 9 total.
+    for _ in 0..3 {
+        game.apply_action(0, &send("gg")).unwrap();
+        game.apply_action(1, &send("gg")).unwrap();
+        game.apply_action(2, &send("gg")).unwrap();
+    }
 
     let terminal = game.full_state();
     assert_eq!(terminal.phase, WordlePhase::GameOver);
     assert!(terminal.is_terminal);
-    assert_eq!(
-        terminal.target_word,
-        Some("civic".to_string()),
-        "target_word revealed during game_over"
-    );
     assert!(game.legal_actions(0).is_empty());
 }
 
@@ -245,9 +264,12 @@ fn full_state_trait_impls_report_winner_and_phase() {
         game.apply_action(2, &guess("joker")).unwrap();
     }
 
-    game.apply_action(0, &send("banter")).unwrap();
-    game.apply_action(1, &send("banter")).unwrap();
-    game.apply_action(2, &send("banter")).unwrap();
+    // Exhaust the Banter chat budget (default 3 per player * 3 players).
+    for _ in 0..3 {
+        game.apply_action(0, &send("banter")).unwrap();
+        game.apply_action(1, &send("banter")).unwrap();
+        game.apply_action(2, &send("banter")).unwrap();
+    }
 
     let full = game.full_state();
     assert!(full.is_terminal());
@@ -259,4 +281,59 @@ fn full_state_trait_impls_report_winner_and_phase() {
         }
         other => panic!("expected game over, got {other:?}"),
     }
+}
+
+// -----------------------------------------------------------------------
+// Regression: each player has their own hidden target word.
+//
+// Previously `WordleGame` stored a single shared target, so all players
+// saw the same answer — contradicting the spec. The new-with-seed path
+// derives a distinct target per player slot. Per-player targets must be
+// visible to their owner via `state_for_player`, and hidden from
+// opponents via `OpponentSummary`.
+// -----------------------------------------------------------------------
+
+#[test]
+fn each_player_has_a_distinct_target_from_seed() {
+    let game = WordleGame::new(vec![0, 1, 2], names(), WordleConfig::default(), 0xC0FFEE)
+        .expect("game should initialize");
+    let state = game.full_state();
+    let targets: std::collections::HashSet<_> = state
+        .players
+        .iter()
+        .map(|p| p.target_word.clone())
+        .collect();
+    // With three slots the splitmix derivation yields three different
+    // answer-list entries for any reasonable seed.
+    assert_eq!(
+        targets.len(),
+        3,
+        "expected 3 distinct per-player targets, got {targets:?}"
+    );
+}
+
+#[test]
+fn state_for_player_reveals_only_own_target() {
+    let game = WordleGame::new(vec![0, 1, 2], names(), WordleConfig::default(), 12345)
+        .expect("game should initialize");
+    let full = game.full_state();
+    let p0_target = &full.players[0].target_word;
+    let p1_target = &full.players[1].target_word;
+
+    let p0_view = game.state_for_player(0).expect("p0 view");
+    assert_eq!(p0_view.my_progress.target_word, *p0_target);
+    // Opponent summaries intentionally do not carry target words.
+    let opp_field_names = serde_json::to_value(&p0_view.opponents[0])
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .keys()
+        .cloned()
+        .collect::<Vec<_>>();
+    assert!(
+        !opp_field_names.iter().any(|k| k == "target_word"),
+        "OpponentSummary must not leak target_word"
+    );
+    // Sanity: p0's and p1's targets are distinct for this seed.
+    assert_ne!(p0_target, p1_target);
 }

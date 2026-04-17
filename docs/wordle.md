@@ -11,20 +11,33 @@ Canonical Wordle rules: <https://www.nytimes.com/games/wordle>. Uses the widely-
 { "action_type": "send_message", "message": "Good luck" }
 ```
 
-Phase determines which action is legal: `lobby` and `banter` phases accept `send_message`; `guessing` phase accepts `guess` (and sometimes `send_message` for a required win-announcement). Canonical source: `WordleAction` in `crates/wordle-protocol/src/lib.rs`.
+Phase determines which action is legal:
+- `lobby`: accepts `send_message` (free-form chat, capped per player by `max_messages_per_chat_phase`) and `guess`. The first guess by any player transitions to `guessing`, so silent players do not block the match.
+- `guessing`: accepts `guess` from active players and `send_message` from a player who just solved (a one-shot "win" announcement).
+- `banter`: accepts `send_message` only. The phase auto-advances to `game_over` once the total banter message budget is exhausted (`max_messages_per_chat_phase × player_count`).
+- `game_over`: no legal actions.
+
+Canonical source: `WordleAction` in `crates/wordle-protocol/src/lib.rs`.
 
 ## State
 
+`WordleFullState` (server / observer view):
+- `turn`: 1-based, 0 during `lobby`.
 - `phase`: `"lobby" | "guessing" | "banter" | "game_over"`.
-- `players`: per-player view with your own `target_word` visible to you (others see only length + solved flag).
-- `guesses`: array of `{ player_id, word, feedback: [correct|present|absent]*5, turn }`.
-- `chat`: array of `{ player_id, text, turn, phase }`.
-- `current_player`: id of the player whose turn it is during `guessing`.
-- `turn_number`: 1-based.
+- `players`: `Vec<PlayerProgress>` — each entry has `player_id`, `display_name`, `target_word`, `guesses`, `solved`, `eliminated`, `solved_turn`.
+- `chat_messages`: `Vec<ChatMessage>` with `player_id`, `player_name`, `text`, `turn`, `timestamp_ms`, `phase` (`"lobby"|"win"|"banter"`).
+- `is_terminal`, `terminal_reason` (`"all_solved_or_eliminated" | "max_guesses_exhausted"`), `solve_order`.
+
+`WordlePlayerView` (player-filtered, via `state_for_player`):
+- `my_progress`: full `PlayerProgress` including your own `target_word`.
+- `opponents`: `Vec<OpponentSummary>` — no target word leaks; only `guess_count`, `solved`, `eliminated`.
+- `chat_messages`: same log, but win/banter messages have each player's target redacted.
+- `revealed_target_word`: mirrors your own target (always present for the owner).
+- `needs_guess_this_turn`, `is_terminal`, `max_guesses`.
 
 ## Daily seed
 
-`build_wordle_daily_seed_key(date)` and `derive_wordle_daily_seed(seed_key)` produce stable per-day seeds (SHA-256) so a "daily" run gives every player the same puzzle.
+`derive_wordle_daily_seed(date_utc, slot_index)` produces a stable per-day, per-slot seed (SHA-256). `build_wordle_daily_seed_key(date_utc, slot_index)` returns the canonical seed key string for logging. Each player's target is drawn deterministically from the match seed plus their slot index via `word_list::select_word_at`.
 
 ## Wire example
 

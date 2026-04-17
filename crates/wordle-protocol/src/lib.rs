@@ -96,6 +96,9 @@ impl EnvironmentAction for WordleAction {
 pub struct PlayerProgress {
     pub player_id: PlayerId,
     pub display_name: String,
+    /// Each player has their own hidden 5-letter target. Visible to the
+    /// owner via their player-filtered state; elided from opponents.
+    pub target_word: String,
     pub guesses: Vec<GuessResult>,
     pub solved: bool,
     pub eliminated: bool,
@@ -126,7 +129,6 @@ pub struct WordlePlayerView {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WordleFullState {
-    pub target_word: Option<String>,
     pub turn: u32,
     pub phase: WordlePhase,
     pub players: Vec<PlayerProgress>,
@@ -218,6 +220,16 @@ impl SequentialState for WordleFullState {
 pub struct WordleConfig {
     pub max_guesses: u32,
     pub max_message_chars: u32,
+    /// Per-phase cap on how many chat messages a single player may send
+    /// during Lobby or Banter. Silent players no longer block the phase —
+    /// the phase advances on activity (first guess for Lobby, overall
+    /// message budget for Banter). Default 3.
+    #[serde(default = "default_max_messages_per_chat_phase")]
+    pub max_messages_per_chat_phase: u32,
+}
+
+fn default_max_messages_per_chat_phase() -> u32 {
+    3
 }
 
 impl Default for WordleConfig {
@@ -225,6 +237,7 @@ impl Default for WordleConfig {
         Self {
             max_guesses: 6,
             max_message_chars: 200,
+            max_messages_per_chat_phase: default_max_messages_per_chat_phase(),
         }
     }
 }

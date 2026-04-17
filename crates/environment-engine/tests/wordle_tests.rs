@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use environment_engine::registry::EnvironmentRegistry;
 use environment_engine::wordle::WordleEnvironment;
 use environment_engine::{Environment, EnvironmentConfig};
-use serde_json::{json, Value};
+use serde_json::json;
 
 fn create_environment() -> WordleEnvironment {
     let player_ids = vec![0, 1, 2];
@@ -44,36 +44,36 @@ fn test_initial_turn_info_and_legal_actions() {
 
     let actions = env.legal_actions("0").expect("legal actions");
     let arr = actions.as_array().expect("actions should be an array");
-    assert_eq!(arr.len(), 1);
-    assert_eq!(
-        arr[0]["action_type"],
-        Value::String("send_message".to_string())
-    );
+    // Lobby is non-blocking: every player's legal-action set contains
+    // both send_message and guess so a silent player can't hang the match.
+    assert_eq!(arr.len(), 2);
+    let action_types: std::collections::HashSet<_> = arr
+        .iter()
+        .map(|a| a["action_type"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert!(action_types.contains("send_message"));
+    assert!(action_types.contains("guess"));
 }
 
 #[test]
-fn test_apply_lobby_messages_advances_to_guessing() {
+fn test_first_guess_advances_lobby_to_guessing() {
     let mut env = create_environment();
     env.apply_action(
         "0",
         &json!({"action_type": "send_message", "message": "ready"}),
     )
     .expect("p0 message");
-    env.apply_action(
-        "1",
-        &json!({"action_type": "send_message", "message": "ready"}),
-    )
-    .expect("p1 message");
-    env.apply_action(
-        "2",
-        &json!({"action_type": "send_message", "message": "ready"}),
-    )
-    .expect("p2 message");
+    // Still in lobby — chat alone doesn't advance.
+    assert_eq!(env.turn_info().unwrap().phase, "lobby");
+
+    // Any player's first guess kicks the match into `guessing`, even if
+    // the other two players never sent a lobby message.
+    let valid_guess = json!({"action_type": "guess", "word": "crane"});
+    env.apply_action("0", &valid_guess).expect("p0 guess");
 
     let info = env.turn_info().expect("turn_info");
     assert_eq!(info.turn_number, 1);
     assert_eq!(info.phase, "guessing");
-    assert_eq!(info.active_players, vec!["0", "1", "2"]);
 }
 
 #[test]
