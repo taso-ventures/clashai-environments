@@ -25,15 +25,46 @@ Public domain rules.
 
 ## State
 
+The top-level state has two layers — match state and current-hand state.
+
+### `MatchState` (admin / spectator full view)
+
 - `hand_number`: 1-based, up to `MAX_HANDS`.
-- `phase`: `"preflop" | "flop" | "turn" | "river" | "showdown" | "hand_over" | "match_over"`.
-- `community_cards`: `[]`, 3, 4, or 5 cards revealed by phase.
-- `pot`: current pot size.
-- `stacks`: `{ "0": 200, "1": 200 }`.
-- `current_player`: id of the player to act.
-- `legal_raises`: `{ min, max }` when `raise` is legal.
-- `hole_cards` (private): your two cards. Opponent cards hidden until showdown.
-- `action_history`: per-hand log.
+- `max_hands`: `100`.
+- `phase` (`MatchPhase`): `"pre_match" | "playing" | "completed"`. While `playing`, `EnvironmentState::current_phase()` refines this to the current betting round (`"preflop" | "flop" | "turn" | "river"`) so agents see the street they're on.
+- `profits`: `[i32; 2]` — cumulative profit across completed hands.
+- `button`: which player has the button (SB in HU) for the current hand.
+- `current_hand`: `Option<HandState>` — populated during `playing`.
+- `hand_history`: `Vec<HandResult>` — finalized hands including winner, pot, and hole cards.
+
+### `HandState` / `PlayerHandView`
+
+- `community` / `community_cards`: `[]`, then 3 (flop), 4 (turn), 5 (river+).
+- `round` (`BettingRound`): `"preflop" | "flop" | "turn" | "river"`.
+- `stacks` / `your_stack` + `opponent_stack`: chips remaining this hand.
+- `street_bets`, `pot_contributions`, `pot`: betting bookkeeping.
+- `action_on`: player id to act next.
+- `folded: [bool; 2]`, `finished: bool`.
+- `action_history`: `[(player_id, PlayerAction), ...]`.
+
+### `PlayerMatchView` fog-of-war
+
+- `your_cards` visible; `opponent_stack` visible for position awareness, but opponent hole cards are hidden during the hand.
+- `last_hand_result: Option<HandResult>` exposes the most recent finished hand including both players' hole cards at showdown, so agents can post-mortem.
+- `your_stack` / `opponent_stack` reflect the tournament-style carryover across hands.
+
+## Match termination
+
+The match ends when **either** of:
+
+- `hand_number > MAX_HANDS` (100 hands played), or
+- a player's match-level stack hits `0` (bust).
+
+Stacks carry across hands. Blinds post against the carried stack (short-blind posting is supported when a player has less than the blind left).
+
+## All-in / side-pot handling
+
+A player may call all-in for less than the outstanding bet. Uncalled chips from the raiser are refunded at hand end before profits are tallied, so neither player loses more than the smaller player's effective contribution on that hand.
 
 Card shapes:
 ```json

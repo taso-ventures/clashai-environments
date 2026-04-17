@@ -205,9 +205,12 @@ fn test_all_in_deals_remaining_community() {
     // BB calls
     game.apply_action(bb, &PokerAction::Call).unwrap();
 
-    // Hand should be complete with full board
+    // Hand should be complete with full board. With tournament-style
+    // stack carryover, a full all-in eliminates the loser, so the match
+    // ends on hand 1 rather than starting hand 2.
     let state = game.state();
-    assert_eq!(state.hand_number, 2);
+    assert_eq!(state.hand_number, 1);
+    assert_eq!(state.phase, MatchPhase::Completed);
     let result = &state.hand_history[0];
     assert_eq!(result.community.len(), 5);
     assert!(result.showdown);
@@ -382,4 +385,73 @@ fn test_deterministic_hands() {
 
     assert_eq!(game1.state().profits, game2.state().profits);
     assert_eq!(game1.state().hand_number, game2.state().hand_number);
+}
+
+// -----------------------------------------------------------------------
+// Regression: match-level stack carryover + elimination.
+//
+// Previously each hand reset both stacks to INITIAL_STACK so the match
+// could only end at MAX_HANDS. With tournament carryover, a full all-in
+// loss ends the match immediately and the winner keeps both stacks.
+// -----------------------------------------------------------------------
+
+#[test]
+fn all_in_loss_ends_match_before_max_hands() {
+    let mut game = PokerMatch::new(42).unwrap();
+    let state = game.state();
+    let sb = state.button;
+    let bb = 1 - sb;
+
+    // SB shoves all-in; BB calls. One player finishes this hand with
+    // their whole stack gone.
+    let max = game.legal_actions(sb).max_raise;
+    game.apply_action(sb, &PokerAction::Raise { amount: max })
+        .unwrap();
+    game.apply_action(bb, &PokerAction::Call).unwrap();
+
+    let state = game.state();
+    assert_eq!(state.phase, MatchPhase::Completed);
+    assert_eq!(state.hand_number, 1);
+    // Winner's profit is +INITIAL_STACK, loser's is -INITIAL_STACK.
+    let winner = game.winner().expect("someone won the all-in");
+    assert_eq!(state.profits[winner as usize], INITIAL_STACK);
+    assert_eq!(state.profits[1 - winner as usize], -INITIAL_STACK);
+}
+
+// Regression: short all-in call is now legal. A player facing a bet
+// larger than their stack may call for what they have left; uncalled
+// chips from the raiser are refunded at hand end.
+#[test]
+fn short_all_in_call_is_legal_and_refunds_uncalled_chips() {
+    let mut game = PokerMatch::new(7).unwrap();
+    let state = game.state();
+    let sb = state.button;
+    let bb = 1 - sb;
+
+    // SB shoves all-in. BB has fewer chips after posting the big blind,
+    // so a call amount of full INITIAL_STACK exceeds BB's stack.
+    let max = game.legal_actions(sb).max_raise;
+    game.apply_action(sb, &PokerAction::Raise { amount: max })
+        .unwrap();
+
+    let bb_legal = game.legal_actions(bb);
+    assert!(bb_legal.can_call, "BB must be able to call short all-in");
+
+    game.apply_action(bb, &PokerAction::Call).unwrap();
+
+    // After the hand, chips on each side sum to 2*INITIAL_STACK (no
+    // chips vanished; uncalled excess either went into the pot or was
+    // refunded).
+    let state = game.state();
+    assert_eq!(
+        state.profits[0] + state.profits[1],
+        0,
+        "total profits must sum to zero (zero-sum per hand)"
+    );
+    let result = &state.hand_history[0];
+    assert!(
+        result.pot <= 2 * INITIAL_STACK,
+        "pot cannot exceed both stacks; got {}",
+        result.pot
+    );
 }

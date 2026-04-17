@@ -191,7 +191,9 @@ pub struct HandState {
     pub action_history: Vec<(PlayerId, PlayerAction)>,
 }
 
-/// Player-filtered view of the match (hides opponent hole cards).
+/// Player-filtered view of the match (hides opponent hole cards while a
+/// hand is in progress; the most recent completed hand's showdown info is
+/// exposed via `last_hand_result`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerMatchView {
     pub player_id: PlayerId,
@@ -199,9 +201,15 @@ pub struct PlayerMatchView {
     pub max_hands: u32,
     pub your_profit: i32,
     pub opponent_profit: i32,
+    pub your_stack: i32,
+    pub opponent_stack: i32,
     pub phase: MatchPhase,
     pub button: PlayerId,
     pub current_hand: Option<PlayerHandView>,
+    /// Most recent completed hand's result (opponent hole cards revealed
+    /// on showdown, or `None` before the first hand finishes). Lets agents
+    /// see what the opponent held after the hand ends.
+    pub last_hand_result: Option<HandResult>,
 }
 
 /// Player-filtered view of a single hand.

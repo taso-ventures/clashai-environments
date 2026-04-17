@@ -31,6 +31,10 @@ pub struct PokerMatch {
     hand_number: u32,
     /// Cumulative profit for each player across all hands.
     profits: [i32; 2],
+    /// Match-level stacks. Each player starts with [`INITIAL_STACK`]; each
+    /// completed hand's profits flow into these. Match ends when a player
+    /// is busted (stack <= 0) OR when [`MAX_HANDS`] is reached.
+    match_stacks: [i32; 2],
     /// Current hand state, `None` between hands or when match is over.
     current_hand: Option<HandEngine>,
     /// Completed hand results.
@@ -48,6 +52,7 @@ impl PokerMatch {
             seed,
             hand_number: 0,
             profits: [0, 0],
+            match_stacks: [INITIAL_STACK, INITIAL_STACK],
             current_hand: None,
             hand_history: Vec::new(),
             phase: MatchPhase::PreMatch,
@@ -63,7 +68,10 @@ impl PokerMatch {
         self.button = if self.hand_number % 2 == 1 { 0 } else { 1 };
         // Per-hand seed: base_seed XOR hand_number for reproducibility
         let hand_seed = self.seed ^ (self.hand_number as u64);
-        self.current_hand = Some(HandEngine::new(hand_seed, self.button)?);
+        // Each hand starts with the match-level stacks (tournament-style
+        // carryover), not a fresh INITIAL_STACK. Busted players cannot
+        // start another hand — the caller is expected to check elimination.
+        self.current_hand = Some(HandEngine::new(hand_seed, self.button, self.match_stacks)?);
         self.phase = MatchPhase::Playing;
         Ok(())
     }
@@ -89,9 +97,12 @@ impl PokerMatch {
             max_hands: MAX_HANDS,
             your_profit: self.profits[player_id as usize],
             opponent_profit: self.profits[1 - player_id as usize],
+            your_stack: self.match_stacks[player_id as usize],
+            opponent_stack: self.match_stacks[1 - player_id as usize],
             phase: self.phase,
             button: self.button,
             current_hand: self.current_hand.as_ref().map(|h| h.player_view(player_id)),
+            last_hand_result: self.hand_history.last().cloned(),
         }
     }
 
@@ -132,13 +143,16 @@ impl PokerMatch {
                 .ok_or_else(|| PokerError::Internal("hand finished but no result".into()))?;
             result.hand_number = self.hand_number;
 
-            // Update cumulative profits
+            // Update cumulative profits and match-level stacks.
             self.profits[0] += result.profits[0];
             self.profits[1] += result.profits[1];
+            self.match_stacks[0] += result.profits[0];
+            self.match_stacks[1] += result.profits[1];
             self.hand_history.push(result);
 
-            // Start next hand or end match
-            if self.hand_number >= MAX_HANDS {
+            // End match if either player is busted OR we've reached the cap.
+            let eliminated = self.match_stacks[0] <= 0 || self.match_stacks[1] <= 0;
+            if eliminated || self.hand_number >= MAX_HANDS {
                 self.phase = MatchPhase::Completed;
                 self.current_hand = None;
             } else {
@@ -208,8 +222,9 @@ pub(crate) struct HandEngine {
 }
 
 impl HandEngine {
-    /// Create a new hand with the given seed and button position.
-    pub(crate) fn new(seed: u64, button: PlayerId) -> Result<Self> {
+    /// Create a new hand with the given seed, button position, and the
+    /// carried-over stacks from the previous hand (tournament mode).
+    pub(crate) fn new(seed: u64, button: PlayerId, starting_stacks: [i32; 2]) -> Result<Self> {
         let mut deck = Deck::new_shuffled(seed);
 
         // Deal hole cards: button (SB) first, then BB
@@ -233,10 +248,13 @@ impl HandEngine {
         hole_cards[sb as usize] = [sb_card1, sb_card2];
         hole_cards[bb as usize] = [bb_card1, bb_card2];
 
-        // Post blinds
-        let mut stacks = [INITIAL_STACK; 2];
-        stacks[sb as usize] -= SMALL_BLIND;
-        stacks[bb as usize] -= BIG_BLIND;
+        // Post blinds from the carried-over stacks. If a player has less
+        // than the full blind, they post what they have (all-in blind).
+        let mut stacks = starting_stacks;
+        let sb_post = stacks[sb as usize].min(SMALL_BLIND);
+        stacks[sb as usize] -= sb_post;
+        let bb_post = stacks[bb as usize].min(BIG_BLIND);
+        stacks[bb as usize] -= bb_post;
 
         // Remaining deck cards
         let remaining = deck
@@ -246,6 +264,11 @@ impl HandEngine {
         // In HU, SB (button) acts first preflop
         let action_on = sb;
 
+        let mut street_bets = [0i32; 2];
+        street_bets[sb as usize] = sb_post;
+        street_bets[bb as usize] = bb_post;
+        let pot_contributions = street_bets;
+
         Ok(Self {
             hole_cards,
             community: Vec::new(),
@@ -253,14 +276,8 @@ impl HandEngine {
             deck_position: 0,
             round: BettingRound::Preflop,
             stacks,
-            street_bets: [
-                SMALL_BLIND * (sb == 0) as i32 + BIG_BLIND * (bb == 0) as i32,
-                SMALL_BLIND * (sb == 1) as i32 + BIG_BLIND * (bb == 1) as i32,
-            ],
-            pot_contributions: [
-                SMALL_BLIND * (sb == 0) as i32 + BIG_BLIND * (bb == 0) as i32,
-                SMALL_BLIND * (sb == 1) as i32 + BIG_BLIND * (bb == 1) as i32,
-            ],
+            street_bets,
+            pot_contributions,
             button,
             action_on,
             folded: [false; 2],
@@ -330,7 +347,10 @@ impl HandEngine {
 
         let can_fold = call_amount > 0;
         let can_check = call_amount == 0;
-        let can_call = call_amount > 0 && my_stack >= call_amount;
+        // Short all-in call: a player with fewer chips than the outstanding
+        // bet can still call for whatever they have left. Uncalled chips
+        // from the raiser are refunded at hand end.
+        let can_call = call_amount > 0 && my_stack > 0;
 
         // Min raise: must raise by at least the last raise increment (or BB)
         let min_raise_increment = self.last_raise_size.max(BIG_BLIND);
@@ -501,6 +521,22 @@ impl HandEngine {
     }
 
     fn finish_hand(&mut self) {
+        // Refund uncalled chips. In HU, if one player has contributed more
+        // to the pot than the other (typically because the opponent went
+        // all-in for less), the excess is not in play — return it to the
+        // contributor before computing the result.
+        let effective = self.pot_contributions[0].min(self.pot_contributions[1]);
+        for p in 0..2 {
+            let excess = self.pot_contributions[p] - effective;
+            if excess > 0 {
+                self.pot_contributions[p] = effective;
+                self.stacks[p] += excess;
+                // Also flush the street bet display for cleanliness.
+                if self.street_bets[p] >= excess {
+                    self.street_bets[p] -= excess;
+                }
+            }
+        }
         self.finished = true;
     }
 
