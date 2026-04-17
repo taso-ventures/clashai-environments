@@ -98,9 +98,14 @@ impl TicTacToeGame {
 
     /// Return the full game state.
     pub fn full_state(&self) -> TicTacToeFullState {
+        let current_player = if self.phase == TicTacToePhase::GameOver {
+            None
+        } else {
+            Some(self.players[self.current_player_idx].player_id)
+        };
         TicTacToeFullState {
             board: self.board,
-            current_player: self.players[self.current_player_idx].player_id,
+            current_player,
             turn: self.turn,
             phase: self.phase,
             winner: self.winner,

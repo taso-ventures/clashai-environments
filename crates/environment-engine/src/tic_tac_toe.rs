@@ -41,10 +41,10 @@ impl TicTacToeEnvironment {
 
     fn active_players(&self) -> Vec<String> {
         let state = self.game.full_state();
-        if state.phase == tic_tac_toe_protocol::TicTacToePhase::GameOver {
-            return vec![];
+        match state.current_player {
+            Some(pid) => vec![pid.to_string()],
+            None => vec![],
         }
-        vec![state.current_player.to_string()]
     }
 }
 

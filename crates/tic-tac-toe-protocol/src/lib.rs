@@ -93,7 +93,9 @@ pub struct TicTacToePlayer {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TicTacToeFullState {
     pub board: [[CellState; 3]; 3],
-    pub current_player: PlayerId,
+    /// Id of the player to act next, or `None` if the game is in
+    /// `game_over` (there is no next turn).
+    pub current_player: Option<PlayerId>,
     pub turn: u32,
     pub phase: TicTacToePhase,
     pub winner: Option<PlayerId>,
@@ -138,7 +140,7 @@ impl SequentialState for TicTacToeFullState {
         // Tic-tac-toe: exactly one active player per turn.
         SequentialPhase::Decision {
             kind: SequentialDecisionKind::Active,
-            players: vec![self.current_player],
+            players: self.current_player.into_iter().collect(),
             deadline: None,
         }
     }

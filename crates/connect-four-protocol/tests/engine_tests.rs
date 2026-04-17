@@ -32,7 +32,7 @@ fn initial_state_is_correct() {
 
     assert_eq!(state.turn, 1);
     assert_eq!(state.phase, ConnectFourPhase::Playing);
-    assert_eq!(state.current_player, 1); // Blue goes first
+    assert_eq!(state.current_player, Some(1)); // Blue goes first
     assert!(state.winner.is_none());
     assert!(state.terminal_reason.is_none());
     assert!(state.move_history.is_empty());
@@ -46,15 +46,15 @@ fn initial_state_is_correct() {
 #[test]
 fn turns_alternate_between_players() {
     let mut game = make_game();
-    assert_eq!(game.full_state().current_player, 1);
+    assert_eq!(game.full_state().current_player, Some(1));
 
     game.apply_action(1, &ConnectFourAction { column: 0 })
         .unwrap();
-    assert_eq!(game.full_state().current_player, 2);
+    assert_eq!(game.full_state().current_player, Some(2));
 
     game.apply_action(2, &ConnectFourAction { column: 1 })
         .unwrap();
-    assert_eq!(game.full_state().current_player, 1);
+    assert_eq!(game.full_state().current_player, Some(1));
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn full_column_is_rejected() {
     assert_ne!(state.board[0][0], CellState::Empty);
 
     // Next action in column 0 should fail
-    let current = state.current_player;
+    let current = state.current_player.expect("game still active");
     let err = game
         .apply_action(current, &ConnectFourAction { column: 0 })
         .unwrap_err();

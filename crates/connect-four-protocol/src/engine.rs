@@ -84,9 +84,14 @@ impl ConnectFourGame {
 
     /// Return the full game state.
     pub fn full_state(&self) -> ConnectFourFullState {
+        let current_player = if self.phase == ConnectFourPhase::GameOver {
+            None
+        } else {
+            Some(self.players[self.current_player_idx].player_id)
+        };
         ConnectFourFullState {
             board: self.board,
-            current_player: self.players[self.current_player_idx].player_id,
+            current_player,
             turn: self.turn,
             phase: self.phase,
             winner: self.winner,

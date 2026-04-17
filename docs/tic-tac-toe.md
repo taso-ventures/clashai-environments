@@ -17,7 +17,7 @@ Tic-Tac-Toe has only one action kind so the envelope omits `action_type`. `row` 
 - `phase`: `"playing" | "game_over"`.
 - `terminal_reason`: in `game_over`, `"win" | "draw"`.
 - `board`: `3x3` array of `"empty" | "x" | "o"`.
-- `current_player`: id of the player whose turn it is.
+- `current_player`: `Option<player_id>` — id of the player whose turn it is during `playing`, `null` in `game_over`.
 - `move_history`: `[{ player_id, row, col, turn }, ...]`.
 - `winner`: in `game_over` with `terminal_reason == "win"`, the winning player id.
 

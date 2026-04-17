@@ -105,7 +105,9 @@ pub struct ConnectFourPlayer {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConnectFourFullState {
     pub board: [[CellState; COLS]; ROWS],
-    pub current_player: PlayerId,
+    /// Id of the player to act next, or `None` if the game is in
+    /// `game_over` (there is no next turn).
+    pub current_player: Option<PlayerId>,
     pub turn: u32,
     pub phase: ConnectFourPhase,
     pub winner: Option<PlayerId>,
@@ -149,7 +151,7 @@ impl SequentialState for ConnectFourFullState {
 
         SequentialPhase::Decision {
             kind: SequentialDecisionKind::Active,
-            players: vec![self.current_player],
+            players: self.current_player.into_iter().collect(),
             deadline: None,
         }
     }

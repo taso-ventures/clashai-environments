@@ -24,7 +24,7 @@ fn new_game_initial_state() {
     let state = game.full_state();
     assert_eq!(state.turn, 1);
     assert_eq!(state.phase, TicTacToePhase::Playing);
-    assert_eq!(state.current_player, 0);
+    assert_eq!(state.current_player, Some(0));
     assert!(state.winner.is_none());
     assert!(state.terminal_reason.is_none());
     assert!(state.move_history.is_empty());
@@ -54,9 +54,9 @@ fn rejects_duplicate_player_ids() {
 fn alternating_turns() {
     let mut game = make_game();
     apply(&mut game, 0, 0, 0);
-    assert_eq!(game.full_state().current_player, 1);
+    assert_eq!(game.full_state().current_player, Some(1));
     apply(&mut game, 1, 1, 1);
-    assert_eq!(game.full_state().current_player, 0);
+    assert_eq!(game.full_state().current_player, Some(0));
 }
 
 #[test]

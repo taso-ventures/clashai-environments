@@ -17,7 +17,7 @@ Connect Four has only one action kind so the envelope omits `action_type`. `colu
 - `phase`: `"playing" | "game_over"`.
 - `terminal_reason`: `"win" | "draw"` in `game_over`.
 - `board`: 6×7 array of `"empty" | "blue" | "orange"`, row 0 is the top.
-- `current_player`: id of the player whose turn it is.
+- `current_player`: `Option<player_id>` — id of the player whose turn it is during `playing`, `null` in `game_over`.
 - `move_history`: `[{ player_id, column, turn }, ...]`.
 - `winner`: winning player id (if any).
 

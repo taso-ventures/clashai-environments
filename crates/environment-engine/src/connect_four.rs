@@ -41,10 +41,10 @@ impl ConnectFourEnvironment {
 
     fn active_players(&self) -> Vec<String> {
         let state = self.game.full_state();
-        if state.phase == connect_four_protocol::ConnectFourPhase::GameOver {
-            return vec![];
+        match state.current_player {
+            Some(pid) => vec![pid.to_string()],
+            None => vec![],
         }
-        vec![state.current_player.to_string()]
     }
 }
 
