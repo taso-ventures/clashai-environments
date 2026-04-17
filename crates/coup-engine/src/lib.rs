@@ -1095,12 +1095,17 @@ impl CoupGame {
         };
         if is_blockable(&pending.action) {
             let waiting_on = match pending.action {
-                // Per official rules: "any other player may Block it by claiming
-                // to have the proper character." All blockable actions allow any
-                // non-actor alive player to attempt a block.
-                CoupAction::ForeignAid
-                | CoupAction::Assassinate { .. }
-                | CoupAction::Steal { .. } => self.waiting_on_all_except(pending.actor),
+                // Foreign Aid can be blocked by any alive non-actor (Duke claim).
+                CoupAction::ForeignAid => self.waiting_on_all_except(pending.actor),
+                // Assassinate and Steal can only be blocked by the TARGET of the
+                // action, not third parties. Contessa for Assassinate;
+                // Captain/Ambassador for Steal.
+                CoupAction::Assassinate { target } | CoupAction::Steal { target } => {
+                    match self.state.players.get(&target) {
+                        Some(t) if !t.eliminated => vec![target],
+                        _ => vec![],
+                    }
+                }
                 _ => vec![],
             };
             if waiting_on.is_empty() {

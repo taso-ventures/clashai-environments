@@ -114,6 +114,9 @@ impl Environment for CoupEnvironment {
 
     fn state_for_player(&self, player_id: &str) -> Result<serde_json::Value> {
         let pid = Self::parse_player_id(player_id)?;
+        if !self.game.state().players.contains_key(&pid) {
+            return Err(EnvironmentError::UnknownPlayer(player_id.to_string()));
+        }
         let filtered = self.game.state().filtered_for_player(pid);
         serde_json::to_value(&filtered)
             .map_err(|e| EnvironmentError::SerializationError(e.to_string()))

@@ -385,3 +385,96 @@ fn test_event_history_stored_and_returned() {
         SpectatorEvent::ActionDeclared { .. }
     ));
 }
+
+// -----------------------------------------------------------------------
+// Regression: block scope for Steal / Assassinate.
+//
+// Per the official Coup rules, Steal and Assassinate may only be blocked
+// by the **target** of the action (Captain/Ambassador for Steal, Contessa
+// for Assassinate). Foreign Aid is still blockable by any alive non-actor.
+// -----------------------------------------------------------------------
+
+#[test]
+fn only_target_may_block_steal() {
+    let mut game = build_game(3);
+    // Player 0 steals from player 1. After the (un-challenged) Captain
+    // claim, the block window should only list player 1 as waiting.
+    let _ = game
+        .apply_action(&0, &CoupAction::Steal { target: 1 })
+        .expect("steal ok");
+
+    // Burn through the challenge window so we land in BlockWindow.
+    let action_id = game.state().pending_action.as_ref().expect("pending").id;
+    game.apply_action(&1, &CoupAction::Pass).unwrap();
+    game.apply_action(&2, &CoupAction::Pass).unwrap();
+
+    let state = game.state();
+    match &state.current_phase {
+        TurnPhase::BlockWindow { waiting_on, .. } => {
+            assert_eq!(waiting_on, &vec![1], "only the target may block a steal");
+        }
+        TurnPhase::ActionResolving => {
+            // acceptable: empty block window resolves immediately if
+            // target is eliminated in this fixture
+        }
+        other => panic!("expected BlockWindow, got {other:?}"),
+    }
+
+    // Third-party block attempt must be rejected.
+    let err = game
+        .apply_action(
+            &2,
+            &CoupAction::Block {
+                action_id,
+                claimed_role: Role::Captain,
+            },
+        )
+        .expect_err("non-target block must be rejected");
+    drop(err);
+}
+
+#[test]
+fn only_target_may_block_assassinate() {
+    let mut game = build_game(3);
+    // Give player 0 enough coins to assassinate.
+    game.state_mut().players.get_mut(&0).unwrap().coins = 3;
+    let _ = game
+        .apply_action(&0, &CoupAction::Assassinate { target: 1 })
+        .expect("assassinate ok");
+
+    let action_id = game.state().pending_action.as_ref().expect("pending").id;
+    // Resolve the challenge window.
+    game.apply_action(&1, &CoupAction::Pass).unwrap();
+    game.apply_action(&2, &CoupAction::Pass).unwrap();
+
+    // Non-target Contessa block must be rejected.
+    let err = game
+        .apply_action(
+            &2,
+            &CoupAction::Block {
+                action_id,
+                claimed_role: Role::Contessa,
+            },
+        )
+        .expect_err("non-target Contessa block must be rejected");
+    drop(err);
+}
+
+#[test]
+fn anyone_may_block_foreign_aid() {
+    let mut game = build_game(3);
+    let _ = game
+        .apply_action(&0, &CoupAction::ForeignAid)
+        .expect("foreign aid ok");
+
+    // Foreign Aid is a non-character action and lands directly in
+    // BlockWindow with every alive non-actor listed as a potential
+    // blocker (Duke claim).
+    let state = game.state();
+    match &state.current_phase {
+        TurnPhase::BlockWindow { waiting_on, .. } => {
+            assert!(waiting_on.contains(&1) && waiting_on.contains(&2));
+        }
+        other => panic!("expected BlockWindow, got {other:?}"),
+    }
+}

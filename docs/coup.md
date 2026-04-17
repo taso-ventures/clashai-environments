@@ -8,6 +8,14 @@ Canonical rules: <https://en.wikipedia.org/wiki/The_Resistance:_Coup>. The engin
 
 `duke` · `assassin` · `captain` · `ambassador` · `contessa`
 
+In player-filtered state (fog-of-war), opponents' unrevealed cards serialize as `role: "unknown"`.
+
+## Block scope
+
+- `foreign_aid` can be blocked by any alive non-actor (claim Duke).
+- `assassinate` can only be blocked by the **target** (claim Contessa).
+- `steal` can only be blocked by the **target** (claim Captain or Ambassador).
+
 ## Actions
 
 ```
@@ -38,14 +46,17 @@ All actions use `#[serde(rename_all = "snake_case", tag = "action_type")]`. Acti
 
 ## State
 
-The state object includes:
+`CoupState`:
 
-- `phase`: `"play"`, `"reactive"` (waiting on challenge/block/pass), `"resolving"`, or `"game_over"`.
-- `players`: array of `PlayerPublicInfo` with visible cards (revealed), coins, and alive flag.
-- `current_player`: id of the player whose turn it is during `play` phase.
-- `pending_action`: in `reactive`/`resolving`, the action under consideration, its actor, target, and claimed role.
-- `action_history`: append-only log of completed actions for context.
-- Player view includes their own two `cards` with role; opponents' cards are hidden until revealed.
+- `turn_number`: monotonically increasing, 1-based.
+- `current_phase`: tagged enum — one of `"awaiting_action"`, `"challenge_window"`, `"block_window"`, `"block_challenge_window"`, `"revealing_card"`, `"selecting_card_to_lose"`, `"exchange_selection"`, `"action_resolving"`, or `"game_over"`. Reactive variants carry `waiting_on: [player_id, ...]` and `deadline`; resolution variants carry `player`.
+- `active_player`: id of the player whose turn it is during `awaiting_action`.
+- `players`: map of `{ player_id: PlayerState }`. `PlayerState` has `coins`, `cards: [Card]` (`role` + `revealed`), `eliminated`.
+- `pending_action`: in reactive/resolving phases, the `PendingAction` under consideration (actor, action, target, claimed_role, challenged_by, blocked_by, block_claimed_role, exchange_draw).
+- `action_history`: append-only log of `ActionHistoryEntry` records.
+- `deck_count`: number of cards remaining in the deck.
+
+Own two `cards` always expose their true role; opponents' unrevealed cards render as `role: "unknown"` until revealed.
 
 ## Wire example
 
