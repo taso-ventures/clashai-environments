@@ -61,14 +61,26 @@ impl ScoringZone {
 
 // ─── Scoring Zone Configuration ───
 
-/// Defines the width of each scoring zone band.
-/// The bullseye is centered on the target position.
-/// Zone widths are expressed as half-widths (radius from target center).
+/// Defines the outer radius of each scoring zone band, measured from the
+/// target position along the `[0.0, 1.0]` spectrum.
+///
+/// IMPORTANT: these are **cumulative outer radii**, not independent band
+/// widths. `bullseye_half_width` is the bullseye radius; `near_half_width`
+/// is the outer edge of the Near band (which is the annulus between the
+/// bullseye and this radius); `far_half_width` is the outer edge of the
+/// Far band. Any guess outside `far_half_width` scores `Miss`.
+///
+/// Invariants: `0.0 < bullseye_half_width < near_half_width < far_half_width ≤ 0.5`.
+/// The defaults below expand by 0.04 each band (bullseye ±0.04 → near
+/// ±0.08 → far ±0.12).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ZoneConfig {
-    pub bullseye_half_width: f64, // default: 0.04 (8% of spectrum)
-    pub near_half_width: f64,     // default: 0.08 (additional 8% each side)
-    pub far_half_width: f64,      // default: 0.12 (additional 8% each side)
+    /// Bullseye radius from the target.
+    pub bullseye_half_width: f64,
+    /// Outer radius of the Near band.
+    pub near_half_width: f64,
+    /// Outer radius of the Far band. Beyond this is Miss.
+    pub far_half_width: f64,
 }
 
 impl Default for ZoneConfig {
@@ -262,8 +274,14 @@ impl VibeCheckState {
                 clue,
                 ..
             } => {
-                filtered.target = None;
-                // Strip pending_guesses to prevent info leakage
+                // The active Psychic (cluegiver) has already seen the target
+                // during CluePhase and continues to see it until scoring.
+                // All other players (teammates and opponents) cannot see it.
+                if player_id != *cluegiver {
+                    filtered.target = None;
+                }
+                // Strip pending_guesses to prevent info leakage across
+                // teams / cluegiver leaking through serialized state.
                 filtered.phase = TurnPhase::GuessPhase {
                     active_team: *active_team,
                     cluegiver: *cluegiver,
@@ -278,7 +296,12 @@ impl VibeCheckState {
                 active_guess,
                 ..
             } => {
-                filtered.target = None;
+                // Psychic retains target visibility through the steal
+                // window until the round resolves.
+                let cluegiver_id = self.cluegiver_for_team(*active_team);
+                if Some(player_id) != cluegiver_id {
+                    filtered.target = None;
+                }
                 // Strip pending_steals — forfeit direction reveals target position
                 filtered.phase = TurnPhase::StealPhase {
                     active_team: *active_team,
@@ -293,6 +316,41 @@ impl VibeCheckState {
         }
 
         filtered
+    }
+
+    /// Returns the current cluegiver id for the given team, if one is
+    /// active. Used by fog-of-war filtering when the phase variant does
+    /// not itself carry the cluegiver (e.g. `StealPhase`).
+    fn cluegiver_for_team(&self, team: TeamId) -> Option<PlayerId> {
+        match &self.phase {
+            TurnPhase::CluePhase {
+                active_team,
+                cluegiver,
+            }
+            | TurnPhase::GuessPhase {
+                active_team,
+                cluegiver,
+                ..
+            } => (*active_team == team).then_some(*cluegiver),
+            TurnPhase::StealPhase { active_team, .. } => {
+                if *active_team != team {
+                    return None;
+                }
+                // Resolve via cluegiver_rotation: it records the *next*
+                // cluegiver index per team, so the current round's
+                // cluegiver is the index one behind (mod team size).
+                let team_state = self.teams.iter().find(|t| t.team_id == team)?;
+                let team_idx = self.teams.iter().position(|t| t.team_id == team)?;
+                let next_idx = *self.cluegiver_rotation.get(team_idx)?;
+                let team_size = team_state.player_ids.len();
+                if team_size == 0 {
+                    return None;
+                }
+                let current_idx = (next_idx + team_size - 1) % team_size;
+                team_state.player_ids.get(current_idx).copied()
+            }
+            _ => None,
+        }
     }
 }
 
@@ -859,7 +917,7 @@ mod tests {
     }
 
     #[test]
-    fn test_filtered_for_player_guess_phase_hides_target() {
+    fn test_filtered_for_player_guess_phase_psychic_retains_target() {
         let state = make_test_state(TurnPhase::GuessPhase {
             active_team: 0,
             cluegiver: 0,
@@ -867,10 +925,12 @@ mod tests {
             pending_guesses: HashMap::new(),
         });
 
-        // Even the cluegiver should not see target during guess phase
+        // The Psychic (cluegiver) saw the target during CluePhase and
+        // retains visibility through GuessPhase until the round resolves.
         let filtered = state.filtered_for_player(0);
-        assert!(filtered.target.is_none());
+        assert!(filtered.target.is_some());
 
+        // All other players (teammates and opponents) cannot see it.
         let filtered = state.filtered_for_player(1);
         assert!(filtered.target.is_none());
     }

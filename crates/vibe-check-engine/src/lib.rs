@@ -1914,13 +1914,23 @@ mod tests {
         .unwrap();
 
         let state = game.state();
-        // Nobody should see target during guess phase
+        let cluegiver = 0; // make_game seats player 0 as the opening Psychic
+                           // The Psychic retains target visibility through GuessPhase (until
+                           // the round resolves). Every other player — teammates and
+                           // opponents alike — sees `target = None`.
         for pid in 0..4 {
             let filtered = state.filtered_for_player(pid);
-            assert!(
-                filtered.target.is_none(),
-                "player {pid} should not see target in GuessPhase"
-            );
+            if pid == cluegiver {
+                assert!(
+                    filtered.target.is_some(),
+                    "cluegiver should retain target through GuessPhase"
+                );
+            } else {
+                assert!(
+                    filtered.target.is_none(),
+                    "player {pid} should not see target in GuessPhase"
+                );
+            }
         }
     }
 

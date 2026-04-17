@@ -24,15 +24,22 @@ Canonical source: `VibeCheckAction` in `crates/vibe-check-protocol/src/lib.rs`.
 
 ## State
 
+`VibeCheckState`:
+
 - `round`: 1-based round counter.
-- `phase`: `"clue"`, `"guess"`, `"steal"`, `"scoring"`, or `"game_over"`.
-- `teams`: array of `{ team_id, score, members: [player_id], ... }`.
-- `active_team`: team whose Psychic is clue-giving.
-- `current_card`: `{ left: "cold", right: "hot", category: "temperature" }`.
-- `target_position` (private to active Psychic until scoring): `f64` in `[0.0, 1.0]`.
-- `current_clue` (public after `give_clue`).
-- `current_guess` (public after `guess_position`).
-- `scoring_zone`: only in `scoring` phase — `"bullseye" | "near" | "far" | "miss"`.
+- `phase` (`TurnPhase`): tagged enum with variants
+  - `"clue_phase"` with `active_team`, `cluegiver`
+  - `"guess_phase"` with `active_team`, `cluegiver`, `clue`, `pending_guesses`
+  - `"steal_phase"` with `active_team`, `stealing_team`, `clue`, `active_guess`, `pending_steals`
+  - `"resolving"` / `"game_over"`
+- `teams`: `Vec<TeamState>` — `team_id`, `score`, `player_ids`.
+- `players`: `Vec<PlayerInfo>` — team assignments.
+- `spectrum`: current `SpectrumCard` (`left_label`, `right_label`, `category`) — visible to all.
+- `target`: `Option<Target>` (`position` in `[0.0, 1.0]`). Visible only to the active-team Psychic during `clue_phase`/`guess_phase`/`steal_phase`; hidden from all other players until `resolving` — then public.
+- `zone_config`: cumulative outer radii (`bullseye_half_width` < `near_half_width` < `far_half_width`). See struct docs in `vibe-check-protocol` for the exact semantics.
+- `target_score`, `cluegiver_rotation`, `round_history`, `is_game_over`.
+
+Fog-of-war: `state_for_player` exposes `target` only to the active Psychic. `pending_guesses` / `pending_steals` are redacted for everyone so individual submissions don't leak before the phase resolves.
 
 ## Wire example
 
