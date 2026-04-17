@@ -1,0 +1,13 @@
+[package]
+name = "vibe-check-protocol"
+version = "0.2.3"
+edition = "2021"
+description = "Protocol types for Vibe Check environment"
+authors = []
+license = "MIT"
+publish = false
+
+[dependencies]
+eval-runtime = { path = "../eval-runtime" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

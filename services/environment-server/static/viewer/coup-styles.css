@@ -1,0 +1,499 @@
+/* =====================================================
+   Coup Spectator Viewer - Sci-Fi Cyberpunk Theme
+   Base styles imported via shared-theme.css
+   ===================================================== */
+
+:root {
+  /* Coup-specific: Player Colors */
+  --player-0: #00ffcc;
+  --player-1: #ff8c00;
+  --player-2: #4488ff;
+  --player-3: #44ff88;
+  --player-4: #cc44ff;
+  --player-5: #ffcc00;
+}
+
+#coup-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* =====================================================
+   Header
+   ===================================================== */
+
+#header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(180deg, rgba(0, 20, 30, 0.9) 0%, transparent 100%);
+}
+
+.brand-logo {
+  height: 24px;
+  width: auto;
+  filter:
+    drop-shadow(0 0 6px var(--glow-primary))
+    drop-shadow(0 0 14px rgba(0, 255, 204, 0.45))
+    drop-shadow(0 0 28px rgba(0, 255, 204, 0.2));
+  opacity: 0.9;
+  user-select: none;
+  pointer-events: none;
+}
+
+#match-info {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: -0.24px;
+  color: var(--text-secondary);
+}
+
+#turn-number {
+  font-family: 'Geist Mono', monospace;
+  color: var(--glow-secondary);
+  font-weight: 600;
+}
+
+#phase-indicator {
+  padding: 8px 16px;
+  background: var(--bg-panel);
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--glow-primary);
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+}
+
+/* =====================================================
+   Action Ribbon
+   ===================================================== */
+
+#action-ribbon {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 300px;
+  max-width: 600px;
+  padding: 12px 24px;
+  background: var(--bg-panel);
+  border: 1px solid rgba(0, 255, 204, 0.4);
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 255, 204, 0.1);
+  transition: opacity var(--transition-medium), transform var(--transition-medium);
+}
+
+#action-ribbon.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
+  pointer-events: none;
+}
+
+#action-text {
+  font-size: 14px;
+  line-height: 18px;
+  letter-spacing: -0.28px;
+  font-weight: 400;
+}
+
+#action-text .actor {
+  color: var(--glow-primary);
+  font-weight: 700;
+}
+
+#action-text .action {
+  color: var(--glow-accent);
+  font-weight: 600;
+}
+
+#action-text .target {
+  color: var(--glow-danger);
+  font-weight: 700;
+}
+
+#action-timer {
+  margin-top: 8px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#action-timer.hidden {
+  display: none;
+}
+
+#timer-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--glow-primary), var(--glow-secondary));
+  border-radius: 2px;
+  transition: width 0.1s linear;
+  width: 100%;
+}
+
+/* =====================================================
+   Player Panels — compact left-aligned sidebar strip
+   ===================================================== */
+
+#player-panels {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.player-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 8px;
+  background: rgba(0, 20, 30, 0.7);
+  border-left: 2px solid transparent;
+  border-radius: 4px;
+  transition: all var(--transition-medium);
+  pointer-events: auto;
+}
+
+.player-panel.active {
+  background: rgba(0, 40, 50, 0.85);
+  border-left-color: var(--glow-primary);
+  box-shadow: 0 0 12px rgba(0, 255, 204, 0.15);
+}
+
+.player-panel.eliminated {
+  opacity: 0.35;
+  filter: grayscale(0.8);
+}
+
+/* Color dot */
+.player-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.player-panel[data-player="0"] .player-color-dot { background: var(--player-0); box-shadow: 0 0 6px var(--player-0); }
+.player-panel[data-player="1"] .player-color-dot { background: var(--player-1); box-shadow: 0 0 6px var(--player-1); }
+.player-panel[data-player="2"] .player-color-dot { background: var(--player-2); box-shadow: 0 0 6px var(--player-2); }
+.player-panel[data-player="3"] .player-color-dot { background: var(--player-3); box-shadow: 0 0 6px var(--player-3); }
+.player-panel[data-player="4"] .player-color-dot { background: var(--player-4); box-shadow: 0 0 6px var(--player-4); }
+.player-panel[data-player="5"] .player-color-dot { background: var(--player-5); box-shadow: 0 0 6px var(--player-5); }
+
+.player-name {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: -0.24px;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  transition: color var(--transition-medium);
+}
+
+.player-panel[data-player="0"] .player-name { color: var(--player-0); }
+.player-panel[data-player="1"] .player-name { color: var(--player-1); }
+.player-panel[data-player="2"] .player-name { color: var(--player-2); }
+.player-panel[data-player="3"] .player-name { color: var(--player-3); }
+.player-panel[data-player="4"] .player-name { color: var(--player-4); }
+.player-panel[data-player="5"] .player-name { color: var(--player-5); }
+
+.player-coins {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px;
+  line-height: 14px;
+  letter-spacing: -0.24px;
+  font-weight: 400;
+  color: #D4AF37;
+  margin-left: auto;
+}
+
+.coin-icon {
+  width: 10px;
+  height: 10px;
+  background: radial-gradient(circle at 30% 30%, #f5d96e, #D4AF37, #a07c1c);
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(212, 175, 55, 0.4);
+}
+
+/* Influence pips — small dots instead of card rectangles */
+.player-influence {
+  display: flex;
+  gap: 3px;
+  margin-left: 4px;
+}
+
+.influence-pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--glow-primary);
+  box-shadow: 0 0 4px var(--glow-primary);
+  transition: all var(--transition-medium);
+}
+
+.influence-pip.lost {
+  background: var(--glow-danger);
+  box-shadow: 0 0 3px rgba(255, 68, 68, 0.4);
+  opacity: 0.5;
+}
+
+/* =====================================================
+   Agent Reasoning Bubbles
+   ===================================================== */
+
+/* Reasoning bubble base styles in shared-theme.css;
+   Coup-specific: bubble-name + per-player colors */
+
+.reasoning-bubble .bubble-name {
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+.reasoning-bubble[data-player="0"] { border-left-color: var(--player-0); }
+.reasoning-bubble[data-player="1"] { border-left-color: var(--player-1); }
+.reasoning-bubble[data-player="2"] { border-left-color: var(--player-2); }
+.reasoning-bubble[data-player="3"] { border-left-color: var(--player-3); }
+.reasoning-bubble[data-player="4"] { border-left-color: var(--player-4); }
+.reasoning-bubble[data-player="5"] { border-left-color: var(--player-5); }
+
+.reasoning-bubble[data-player="0"] .bubble-name { color: var(--player-0); }
+.reasoning-bubble[data-player="1"] .bubble-name { color: var(--player-1); }
+.reasoning-bubble[data-player="2"] .bubble-name { color: var(--player-2); }
+.reasoning-bubble[data-player="3"] .bubble-name { color: var(--player-3); }
+.reasoning-bubble[data-player="4"] .bubble-name { color: var(--player-4); }
+.reasoning-bubble[data-player="5"] .bubble-name { color: var(--player-5); }
+
+body.embed-mode .reasoning-bubble {
+  max-width: 200px;
+  padding: 6px 10px;
+}
+
+body.embed-mode .reasoning-bubble .bubble-text {
+  font-size: 11px;
+  -webkit-line-clamp: 2;
+}
+
+/* =====================================================
+   Resolution Overlay
+   ===================================================== */
+
+#resolution-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  transition: opacity var(--transition-medium);
+}
+
+#resolution-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#resolution-content {
+  text-align: center;
+  animation: resolution-pulse 0.5s ease-out;
+}
+
+@keyframes resolution-pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+#resolution-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+#resolution-text {
+  font-size: 31px;
+  line-height: 29px;
+  font-weight: 600;
+  letter-spacing: -1.24px;
+  text-transform: uppercase;
+  text-shadow: 0 0 20px currentColor;
+}
+
+#resolution-overlay.challenge #resolution-text {
+  color: var(--glow-accent);
+}
+
+#resolution-overlay.block #resolution-text {
+  color: var(--glow-secondary);
+}
+
+#resolution-overlay.success #resolution-text {
+  color: var(--glow-success);
+}
+
+#resolution-overlay.failure #resolution-text {
+  color: var(--glow-danger);
+}
+
+/* =====================================================
+   Game Over Overlay
+   ===================================================== */
+
+#game-over-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(0, 255, 204, 0.1) 0%, rgba(0, 0, 0, 0.9) 100%);
+  transition: opacity var(--transition-slow);
+}
+
+#game-over-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#game-over-content {
+  text-align: center;
+  animation: victory-entrance 1s ease-out;
+}
+
+@keyframes victory-entrance {
+  0% {
+    transform: scale(0) rotate(-10deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) rotate(5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+#game-over-content h1 {
+  font-size: 90px;
+  line-height: 88px;
+  font-weight: 600;
+  letter-spacing: -3.6px;
+  color: var(--glow-primary);
+  text-shadow:
+    0 0 20px var(--glow-primary),
+    0 0 40px var(--glow-primary),
+    0 0 60px rgba(0, 255, 204, 0.5);
+  margin-bottom: 24px;
+}
+
+#winner-name {
+  font-size: 31px;
+  line-height: 29px;
+  letter-spacing: -1.24px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Connection status base styles in shared-theme.css */
+
+/* =====================================================
+   Embed Mode
+   ===================================================== */
+
+body.embed-mode #header .brand-logo {
+  height: 18px;
+}
+
+body.embed-mode #header {
+  padding: 12px 16px;
+}
+
+body.embed-mode #player-panels {
+  bottom: 8px;
+  left: 8px;
+  gap: 2px;
+}
+
+body.embed-mode .player-panel {
+  padding: 3px 8px 3px 6px;
+  gap: 6px;
+}
+
+body.embed-mode .player-name {
+  font-size: 11px;
+  max-width: 80px;
+}
+
+/* =====================================================
+   Responsive
+   ===================================================== */
+
+@media (max-width: 768px) {
+  #header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  #match-info {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+
+  #player-panels {
+    display: none;
+  }
+
+  #action-ribbon {
+    min-width: 90%;
+  }
+}
+
+/* =====================================================
+   Role Colors for UI Elements
+   ===================================================== */
+
+.role-duke { color: #9b59b6; }
+.role-assassin { color: #2c3e50; }
+.role-captain { color: #3498db; }
+.role-ambassador { color: #27ae60; }
+.role-contessa { color: #e74c3c; }

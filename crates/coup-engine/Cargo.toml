@@ -1,0 +1,17 @@
+[package]
+name = "coup-engine"
+version = "0.2.10"
+edition = "2021"
+description = "Pure rules engine for the Coup game environment"
+authors = []
+license = "MIT"
+publish = false
+
+[dependencies]
+rand = "0.8"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+thiserror = { workspace = true }
+coup-protocol = { path = "../coup-protocol" }
+tracing = { workspace = true }

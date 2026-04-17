@@ -1,0 +1,57 @@
+[workspace]
+members = [
+    "crates/eval-runtime",
+    "crates/unified-event-protocol",
+    "crates/environment-engine",
+    "crates/coup-protocol",
+    "crates/coup-engine",
+    "crates/vibe-check-protocol",
+    "crates/vibe-check-engine",
+    "crates/wordle-protocol",
+    "crates/tic-tac-toe-protocol",
+    "crates/connect-four-protocol",
+    "crates/red-button-protocol",
+    "crates/poker-protocol",
+    "services/environment-server",
+]
+resolver = "2"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Web framework
+axum = "0.7"
+tower = { version = "0.5", features = ["util"] }
+tower-http = "0.6"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+ulid = { version = "1.2", features = ["serde"] }
+async-trait = "0.1"
+humantime-serde = "1.1"
+
+# Testing
+tokio-test = "0.4"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+strip = "symbols"
+lto = "thin"

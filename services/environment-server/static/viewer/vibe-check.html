@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vibe Check Spectator</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+  <link rel="stylesheet" href="shared/shared-theme.css">
+  <link rel="stylesheet" href="shared/replay-controls.css">
+  <link rel="stylesheet" href="vibe-styles.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="vibe-container" role="application" aria-label="Vibe Check match spectator viewer">
+    <canvas id="three-canvas" aria-label="3D visualization of Vibe Check match"></canvas>
+    <div id="ui-overlay" aria-live="polite">
+      <header id="header">
+        <img class="brand-logo" src="assets/ui/wordmark.svg" alt="" draggable="false">
+        <div id="match-info">
+          <span id="round-number">Round 1</span>
+          <span id="score-display">
+            <span class="team-a-score">TEAM A: 0</span>
+            <span class="score-separator">|</span>
+            <span class="team-b-score">TEAM B: 0</span>
+          </span>
+        </div>
+        <div id="phase-indicator">WAITING</div>
+      </header>
+
+      <div id="reasoning-bubbles"></div>
+      <button id="reasoning-toggle" class="reasoning-toggle" title="Toggle AI reasoning bubbles">&#x1F4AD;</button>
+
+      <div id="connection-status" class="hidden">
+        <span class="status-dot"></span>
+        <span class="status-text">Reconnecting...</span>
+      </div>
+
+      <div id="replay-controls" class="hidden">
+        <button id="replay-step-back" class="replay-btn" title="Previous">&#x23EE;</button>
+        <button id="replay-play-pause" class="replay-btn" title="Play/Pause">&#x25B6;</button>
+        <button id="replay-step-fwd" class="replay-btn" title="Next">&#x23ED;</button>
+        <input type="range" id="replay-scrubber" min="0" max="100" value="0">
+        <span id="replay-position">0 / 0</span>
+        <select id="replay-speed">
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+          <option value="4">4x</option>
+        </select>
+      </div>
+
+      <div id="game-over-overlay" class="hidden">
+        <div id="game-over-content">
+          <h1>VIBE CHECK</h1>
+          <h2>VICTORY</h2>
+          <div id="winner-name"></div>
+          <div id="final-scores"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="vibe-viewer.js"></script>
+</body>
+</html>

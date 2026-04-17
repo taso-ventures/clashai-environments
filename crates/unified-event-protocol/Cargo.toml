@@ -1,0 +1,14 @@
+[package]
+name = "unified-event-protocol"
+version = "0.1.0"
+edition = "2021"
+description = "Unified event envelope for cross-environment spectator streaming, replay, and eval analytics"
+authors = []
+license = "MIT"
+publish = false
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+ulid = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }

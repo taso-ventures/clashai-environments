@@ -1,0 +1,262 @@
+use std::collections::HashMap;
+
+use eval_runtime::{EnvironmentState, SequentialPhase, SequentialState};
+use wordle_protocol::{
+    word_list, ChatPhase, LetterFeedback, PlayerId, TerminalReason, WordleAction, WordleConfig,
+    WordleGame, WordlePhase,
+};
+
+fn names() -> HashMap<PlayerId, String> {
+    [
+        (0, "Alpha".to_string()),
+        (1, "Beta".to_string()),
+        (2, "Gamma".to_string()),
+    ]
+    .into_iter()
+    .collect()
+}
+
+fn game_with_target(target: &str) -> WordleGame {
+    WordleGame::new_with_target(
+        vec![0, 1, 2],
+        names(),
+        WordleConfig::default(),
+        target.to_string(),
+    )
+    .expect("game should initialize")
+}
+
+#[test]
+fn rejects_duplicate_player_ids() {
+    let result = WordleGame::new_with_target(
+        vec![0, 0, 1],
+        names(),
+        WordleConfig::default(),
+        "crane".to_string(),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn rejects_non_ascii_or_non_alpha_target_words() {
+    let result = WordleGame::new_with_target(
+        vec![0, 1, 2],
+        names(),
+        WordleConfig::default(),
+        "ééééé".to_string(),
+    );
+    assert!(result.is_err());
+
+    let result = WordleGame::new_with_target(
+        vec![0, 1, 2],
+        names(),
+        WordleConfig::default(),
+        "ab1de".to_string(),
+    );
+    assert!(result.is_err());
+}
+
+fn send(msg: &str) -> WordleAction {
+    WordleAction::SendMessage {
+        message: msg.to_string(),
+    }
+}
+
+fn guess(word: &str) -> WordleAction {
+    WordleAction::Guess {
+        word: word.to_string(),
+    }
+}
+
+#[test]
+fn default_config_matches_spec() {
+    let cfg = WordleConfig::default();
+    assert_eq!(cfg.max_guesses, 6);
+    assert_eq!(cfg.max_message_chars, 200);
+}
+
+#[test]
+fn word_selection_is_deterministic_and_valid_set_contains_both_lists() {
+    let w1 = word_list::select_word(0);
+    let w2 = word_list::select_word(0);
+    assert_eq!(w1, w2);
+
+    let valid = word_list::valid_word_set();
+    assert!(valid.contains("crane"));
+    assert!(valid.contains("adieu"));
+}
+
+#[test]
+fn lobby_requires_one_message_per_player_then_enters_guessing() {
+    let mut game = game_with_target("crane");
+    let state = game.full_state();
+    assert_eq!(state.phase, WordlePhase::Lobby);
+    assert_eq!(state.turn, 0);
+    assert_eq!(state.target_word, None, "target_word hidden during lobby");
+
+    assert_eq!(game.legal_actions(0), vec![send("")]);
+    game.apply_action(0, &send("hello")).unwrap();
+    game.apply_action(1, &send("hi")).unwrap();
+
+    let mid = game.full_state();
+    assert_eq!(mid.phase, WordlePhase::Lobby);
+
+    game.apply_action(2, &send("ready")).unwrap();
+    let after = game.full_state();
+    assert_eq!(after.phase, WordlePhase::Guessing);
+    assert_eq!(after.turn, 1);
+    assert_eq!(
+        after.target_word, None,
+        "target_word hidden during guessing"
+    );
+}
+
+#[test]
+fn feedback_handles_duplicate_letters_correctly() {
+    let mut game = game_with_target("array");
+    game.apply_action(0, &send("lobby")).unwrap();
+    game.apply_action(1, &send("lobby")).unwrap();
+    game.apply_action(2, &send("lobby")).unwrap();
+
+    game.apply_action(0, &guess("rarer")).unwrap();
+
+    let view = game.state_for_player(0).unwrap();
+    let fb = &view.my_progress.guesses[0].feedback;
+    assert_eq!(
+        fb,
+        &vec![
+            LetterFeedback::Present,
+            LetterFeedback::Present,
+            LetterFeedback::Correct,
+            LetterFeedback::Absent,
+            LetterFeedback::Absent,
+        ]
+    );
+}
+
+#[test]
+fn fog_of_war_hides_opponent_words_but_shows_counts_and_status() {
+    let mut game = game_with_target("crane");
+    game.apply_action(0, &send("go")).unwrap();
+    game.apply_action(1, &send("go")).unwrap();
+    game.apply_action(2, &send("go")).unwrap();
+
+    game.apply_action(0, &guess("crane")).unwrap();
+    game.apply_action(1, &guess("slate")).unwrap();
+    game.apply_action(2, &guess("trace")).unwrap();
+
+    let p1 = game.state_for_player(1).unwrap();
+    assert!(p1.my_progress.guesses[0].word == "slate");
+    assert_eq!(p1.opponents.len(), 2);
+
+    let opp0 = p1.opponents.iter().find(|o| o.player_id == 0).unwrap();
+    assert_eq!(opp0.guess_count, 1);
+    assert!(opp0.solved);
+}
+
+#[test]
+fn solved_player_must_send_win_message_during_guessing() {
+    let mut game = game_with_target("crane");
+    game.apply_action(0, &send("go")).unwrap();
+    game.apply_action(1, &send("go")).unwrap();
+    game.apply_action(2, &send("go")).unwrap();
+
+    game.apply_action(0, &guess("crane")).unwrap();
+    assert_eq!(game.legal_actions(0), vec![send("")]);
+    game.apply_action(0, &send("got it")).unwrap();
+
+    let full = game.full_state();
+    assert!(full
+        .chat_messages
+        .iter()
+        .any(|m| m.player_id == 0 && m.phase == ChatPhase::Win));
+}
+
+#[test]
+fn all_guessers_guessing_advances_turn_and_enforces_once_per_turn() {
+    let mut game = game_with_target("civic");
+    game.apply_action(0, &send("go")).unwrap();
+    game.apply_action(1, &send("go")).unwrap();
+    game.apply_action(2, &send("go")).unwrap();
+
+    game.apply_action(0, &guess("crane")).unwrap();
+    assert!(game.apply_action(0, &guess("grape")).is_err());
+
+    game.apply_action(1, &guess("grape")).unwrap();
+    let s = game.full_state();
+    assert_eq!(s.turn, 1);
+
+    game.apply_action(2, &guess("joker")).unwrap();
+    let s = game.full_state();
+    assert_eq!(s.turn, 2);
+}
+
+#[test]
+fn enters_banter_after_max_guesses_then_game_over_after_all_banter_messages() {
+    let mut game = game_with_target("civic");
+    game.apply_action(0, &send("go")).unwrap();
+    game.apply_action(1, &send("go")).unwrap();
+    game.apply_action(2, &send("go")).unwrap();
+
+    for _ in 0..6 {
+        game.apply_action(0, &guess("crane")).unwrap();
+        game.apply_action(1, &guess("grape")).unwrap();
+        game.apply_action(2, &guess("joker")).unwrap();
+    }
+
+    let s = game.full_state();
+    assert_eq!(s.phase, WordlePhase::Banter);
+    assert_eq!(s.terminal_reason, Some(TerminalReason::MaxGuessesExhausted));
+    assert_eq!(
+        s.target_word,
+        Some("civic".to_string()),
+        "target_word revealed during banter"
+    );
+
+    game.apply_action(0, &send("gg")).unwrap();
+    game.apply_action(1, &send("gg")).unwrap();
+    game.apply_action(2, &send("gg")).unwrap();
+
+    let terminal = game.full_state();
+    assert_eq!(terminal.phase, WordlePhase::GameOver);
+    assert!(terminal.is_terminal);
+    assert_eq!(
+        terminal.target_word,
+        Some("civic".to_string()),
+        "target_word revealed during game_over"
+    );
+    assert!(game.legal_actions(0).is_empty());
+}
+
+#[test]
+fn full_state_trait_impls_report_winner_and_phase() {
+    let mut game = game_with_target("crane");
+    game.apply_action(0, &send("go")).unwrap();
+    game.apply_action(1, &send("go")).unwrap();
+    game.apply_action(2, &send("go")).unwrap();
+
+    game.apply_action(0, &guess("crane")).unwrap();
+    game.apply_action(0, &send("won")).unwrap();
+    game.apply_action(1, &guess("grape")).unwrap();
+    game.apply_action(2, &guess("joker")).unwrap();
+
+    for _ in 0..5 {
+        game.apply_action(1, &guess("grape")).unwrap();
+        game.apply_action(2, &guess("joker")).unwrap();
+    }
+
+    game.apply_action(0, &send("banter")).unwrap();
+    game.apply_action(1, &send("banter")).unwrap();
+    game.apply_action(2, &send("banter")).unwrap();
+
+    let full = game.full_state();
+    assert!(full.is_terminal());
+    assert_eq!(full.current_phase(), "game_over");
+
+    match full.sequential_phase() {
+        SequentialPhase::GameOver { winner } => {
+            assert_eq!(format!("{winner:?}"), "Player(0)");
+        }
+        other => panic!("expected game over, got {other:?}"),
+    }
+}

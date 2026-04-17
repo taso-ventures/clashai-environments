@@ -1,0 +1,18 @@
+[package]
+name = "poker-protocol"
+version = "0.1.0"
+edition = "2021"
+description = "Protocol types and game engine for Heads-Up No-Limit Texas Hold'em"
+authors = []
+license = "MIT"
+publish = false
+
+[dependencies]
+eval-runtime = { path = "../eval-runtime" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rand = { version = "0.8", features = ["std_rng"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }

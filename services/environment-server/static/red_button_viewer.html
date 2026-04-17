@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Red Button — Live Match Viewer</title>
+  <style>
+    :root {
+      --bg: #0d0d0f;
+      --surface: #16181d;
+      --border: #2a2d35;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --persuader: #3b82f6;
+      --persuader-dim: rgba(59, 130, 246, 0.12);
+      --resistor: #22c55e;
+      --resistor-dim: rgba(34, 197, 94, 0.12);
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --button-red: #dc2626;
+      --button-red-glow: rgba(220, 38, 38, 0.6);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ===================== HEADER ===================== */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .logo { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; color: var(--danger); }
+    #status-bar {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .badge {
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .badge.running { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+    .badge.terminal { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .badge.connecting { background: rgba(107, 114, 128, 0.2); color: var(--muted); }
+    #match-label { font-family: monospace; font-size: 11px; color: var(--muted); }
+
+    /* ===================== MAIN LAYOUT ===================== */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 320px 1fr;
+      grid-template-rows: 1fr;
+      overflow: hidden;
+    }
+
+    /* ===================== REASONING PANES ===================== */
+    .reasoning-pane {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .reasoning-pane.resistor { border-left: 1px solid var(--border); border-right: none; }
+    .pane-header {
+      padding: 10px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pane-header.persuader { color: var(--persuader); background: var(--persuader-dim); }
+    .pane-header.resistor { color: var(--resistor); background: var(--resistor-dim); }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot.persuader { background: var(--persuader); }
+    .dot.resistor { background: var(--resistor); }
+    .reasoning-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .reasoning-bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text);
+      animation: fadeIn 0.3s ease;
+    }
+    .reasoning-bubble .turn-tag {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .reasoning-bubble.persuader { border-left: 2px solid var(--persuader); }
+    .reasoning-bubble.resistor { border-left: 2px solid var(--resistor); }
+
+    /* ===================== CENTER PANEL ===================== */
+    .center-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* The Button */
+    .button-stage {
+      flex-shrink: 0;
+      padding: 20px 0 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    #round-counter {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .button-wrapper {
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+    #the-button {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ff5555, #dc2626 60%, #9b1c1c);
+      border: 3px solid rgba(255,100,100,0.4);
+      cursor: default;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.6), 0 0 0 0 var(--button-red-glow);
+    }
+    #the-button.pressed {
+      transform: scale(0.85);
+      box-shadow:
+        0 1px 4px rgba(0,0,0,0.8),
+        0 0 40px var(--button-red-glow),
+        0 0 80px rgba(220, 38, 38, 0.3);
+    }
+    #the-button.pulsing {
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.6), 0 0 0 0 var(--button-red-glow); }
+      50%       { box-shadow: 0 2px 8px rgba(0,0,0,0.6), 0 0 20px rgba(220, 38, 38, 0.5); }
+    }
+    #button-label {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    #winner-banner {
+      display: none;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 5px 14px;
+      border-radius: 20px;
+    }
+    #winner-banner.persuader { background: var(--persuader-dim); color: var(--persuader); }
+    #winner-banner.resistor  { background: var(--resistor-dim);  color: var(--resistor); }
+
+    /* Conversation feed */
+    .conv-header {
+      width: 100%;
+      padding: 8px 16px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #conversation-feed {
+      flex: 1;
+      overflow-y: auto;
+      width: 100%;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .chat-msg {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      animation: fadeIn 0.25s ease;
+    }
+    .chat-msg.persuader { align-items: flex-start; }
+    .chat-msg.resistor  { align-items: flex-end; }
+    .chat-bubble {
+      max-width: 90%;
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .chat-bubble.persuader {
+      background: var(--persuader-dim);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 12px 12px 12px 2px;
+      color: #bfdbfe;
+    }
+    .chat-bubble.resistor {
+      background: var(--resistor-dim);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 12px 12px 2px 12px;
+      color: #bbf7d0;
+    }
+    .chat-meta {
+      font-size: 9px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 32px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===================== FOOTER ===================== */
+    footer {
+      padding: 6px 24px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🔴 RED BUTTON</div>
+  <div id="status-bar">
+    <span id="match-label">–</span>
+    <span class="badge connecting" id="conn-badge">CONNECTING</span>
+  </div>
+</header>
+
+<main>
+  <!-- Persuader reasoning pane (left) -->
+  <div class="reasoning-pane">
+    <div class="pane-header persuader">
+      <div class="dot persuader"></div>
+      Persuader · Reasoning
+    </div>
+    <div class="reasoning-feed" id="persuader-feed">
+      <div class="empty-state">Awaiting first turn…</div>
+    </div>
+  </div>
+
+  <!-- Center: button + conversation -->
+  <div class="center-panel">
+    <div class="button-stage">
+      <div id="round-counter">Round —</div>
+      <div class="button-wrapper">
+        <div id="the-button" class="pulsing"></div>
+      </div>
+      <div id="button-label">The Button</div>
+      <div id="winner-banner"></div>
+    </div>
+    <div class="conv-header">Conversation</div>
+    <div id="conversation-feed">
+      <div class="empty-state">No messages yet</div>
+    </div>
+  </div>
+
+  <!-- Resistor reasoning pane (right) -->
+  <div class="reasoning-pane resistor">
+    <div class="pane-header resistor">
+      <div class="dot resistor"></div>
+      Resistor · Reasoning
+    </div>
+    <div class="reasoning-feed" id="resistor-feed">
+      <div class="empty-state">Awaiting first turn…</div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span id="footer-event-count">Events received: 0</span>
+  <span>Red Button Viewer</span>
+</footer>
+
+<script>
+// ===================== State =====================
+const state = {
+  matchId: null,
+  wsUrl: null,
+  ws: null,
+  round: 0,
+  maxTurns: 200, // Keep in sync with DEFAULT_MAX_TURNS in rb-state.js
+  eventCount: 0,
+  isTerminal: false,
+};
+
+// ===================== Init =====================
+function init() {
+  const params = new URLSearchParams(window.location.search);
+  const matchId = params.get('match_id') || params.get('matchId');
+  const wsBase = params.get('ws_base') || params.get('wsBase') ||
+    window.location.origin.replace(/^http/, 'ws');
+  if (!matchId) {
+    document.getElementById('match-label').textContent = 'match_id param required';
+    return;
+  }
+  state.matchId = matchId;
+  state.wsUrl = `${wsBase}/matches/${matchId}/spectator/ws`;
+  document.getElementById('match-label').textContent = matchId.slice(-8).toUpperCase();
+  connect();
+}
+
+// ===================== WebSocket =====================
+function connect() {
+  state.ws = new WebSocket(state.wsUrl);
+
+  state.ws.addEventListener('open', () => {
+    setBadge('running', 'LIVE');
+  });
+
+  state.ws.addEventListener('message', (evt) => {
+    try {
+      const event = JSON.parse(evt.data);
+      state.eventCount++;
+      document.getElementById('footer-event-count').textContent =
+        `Events received: ${state.eventCount}`;
+      handleEvent(event);
+    } catch (e) {
+      console.warn('Failed to parse event:', e);
+    }
+  });
+
+  state.ws.addEventListener('close', () => {
+    if (!state.isTerminal) {
+      setBadge('connecting', 'RECONNECTING');
+      setTimeout(connect, 3000);
+    } else {
+      setBadge('terminal', 'ENDED');
+    }
+  });
+
+  state.ws.addEventListener('error', () => {
+    setBadge('connecting', 'ERROR');
+  });
+}
+
+// ===================== Event handling =====================
+function handleEvent(raw) {
+  // UnifiedEvent envelope
+  const et = raw.event_type;
+  const action = raw.action;
+
+  if (!action) return;
+
+  // Extract event_name from the action payload
+  const evtName = action.event_name || (Array.isArray(action) ? null : action[0]);
+
+  // Match start
+  if (et === 'match_start') {
+    const players = action.player_names || {};
+    console.log('Match started:', players);
+    return;
+  }
+
+  // Terminal
+  if (et === 'terminal' || raw.is_terminal) {
+    state.isTerminal = true;
+    handleTerminal(action);
+    return;
+  }
+
+  // System events (reasoning)
+  if (et === 'system' && evtName === 'agent_reasoning') {
+    const role = action.role || guessRole(action.player_id);
+    addReasoning(role, action.reasoning || '', state.round);
+    return;
+  }
+
+  // Action events — action is an array of SpectatorEvents
+  if (et === 'action') {
+    const events = Array.isArray(action) ? action : [action];
+    events.forEach(ev => handleSpectatorEvent(ev));
+    return;
+  }
+
+  // Also handle bare SpectatorEvent arrays from older format
+  if (Array.isArray(action)) {
+    action.forEach(ev => handleSpectatorEvent(ev));
+  }
+}
+
+function handleSpectatorEvent(ev) {
+  if (!ev || !ev.event_name) return;
+
+  switch (ev.event_name) {
+    case 'game_started':
+      updateRoundCounter(1, null);
+      break;
+
+    case 'turn_advanced':
+      state.round = ev.round || state.round;
+      updateRoundCounter(state.round);
+      break;
+
+    case 'message_spoken':
+      const role = ev.speaker_role || 'persuader';
+      addMessage(role, ev.message, ev.turn);
+      break;
+
+    case 'agent_reasoning':
+      addReasoning(ev.player_id < 1 ? 'persuader' : 'resistor', ev.reasoning || '', ev.turn);
+      break;
+
+    case 'button_pressed':
+      animateButtonPress();
+      break;
+
+    case 'game_over':
+      state.isTerminal = true;
+      handleTerminal(ev);
+      break;
+  }
+}
+
+function handleTerminal(ev) {
+  const winner = ev.winner_role || 'unknown';
+  const reason = ev.terminal_reason || '';
+  showWinner(winner, reason);
+  animateTerminal(winner);
+  setBadge('terminal', 'ENDED');
+  document.getElementById('the-button').classList.remove('pulsing');
+}
+
+// ===================== DOM helpers =====================
+function updateRoundCounter(round) {
+  document.getElementById('round-counter').textContent =
+    `Round ${round}`;
+}
+
+function addMessage(role, text, turn) {
+  const feed = document.getElementById('conversation-feed');
+  const empties = feed.querySelectorAll('.empty-state');
+  empties.forEach(e => e.remove());
+
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role}`;
+
+  const meta = document.createElement('div');
+  meta.className = 'chat-meta';
+  meta.textContent = `${role} · Turn ${turn}`;
+
+  const bubble = document.createElement('div');
+  bubble.className = `chat-bubble ${role}`;
+  bubble.textContent = text;
+
+  div.appendChild(meta);
+  div.appendChild(bubble);
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function addReasoning(role, text, turn) {
+  if (!text) return;
+  const feedId = role === 'persuader' ? 'persuader-feed' : 'resistor-feed';
+  const feed = document.getElementById(feedId);
+  const empties = feed.querySelectorAll('.empty-state');
+  empties.forEach(e => e.remove());
+
+  const bubble = document.createElement('div');
+  bubble.className = `reasoning-bubble ${role}`;
+
+  const tag = document.createElement('div');
+  tag.className = 'turn-tag';
+  tag.textContent = `Turn ${turn}`;
+
+  const body = document.createElement('div');
+  body.textContent = text;
+
+  bubble.appendChild(tag);
+  bubble.appendChild(body);
+  feed.appendChild(bubble);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function animateButtonPress() {
+  const btn = document.getElementById('the-button');
+  btn.classList.remove('pulsing');
+  btn.classList.add('pressed');
+}
+
+function animateTerminal(winner) {
+  if (winner === 'persuader') {
+    animateButtonPress();
+  }
+}
+
+function showWinner(role, reason) {
+  const banner = document.getElementById('winner-banner');
+  const labels = {
+    persuader: '🏆 Persuader Wins',
+    resistor:  '🛡️ Resistor Wins',
+  };
+  banner.textContent = labels[role] || `${role} wins`;
+  banner.className = `${role}`;
+  banner.style.display = 'block';
+}
+
+function setBadge(cls, text) {
+  const badge = document.getElementById('conn-badge');
+  badge.className = `badge ${cls}`;
+  badge.textContent = text;
+}
+
+function guessRole(playerId) {
+  return playerId === 0 || playerId === '0' ? 'persuader' : 'resistor';
+}
+
+// ===================== Start =====================
+init();
+</script>
+</body>
+</html>
