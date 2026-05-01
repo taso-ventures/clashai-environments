@@ -52,11 +52,11 @@ pub struct RedButtonConfig {
     pub persuader_system_prompt: String,
     /// System prompt injected for the Resistor role.
     pub resistor_system_prompt: String,
-    /// Emit reasoning events live via the spectator WebSocket. Default: true.
+    /// Emit sanitized rationale events live via the spectator WebSocket. Default: true.
     pub publish_reasoning_live: bool,
-    /// Archive reasoning in `match events` for post-match analysis. Default: true.
+    /// Archive sanitized rationale in match events for post-match analysis. Default: true.
     pub archive_reasoning: bool,
-    /// Include raw LLM reasoning text in telemetry. Default: true.
+    /// Include raw private model traces in telemetry. Default: false.
     pub raw_reasoning_enabled: bool,
 }
 
@@ -90,7 +90,7 @@ impl Default for RedButtonConfig {
             ).to_string(),
             publish_reasoning_live: true,
             archive_reasoning: true,
-            raw_reasoning_enabled: true,
+            raw_reasoning_enabled: false,
         }
     }
 }
@@ -281,7 +281,7 @@ impl EnvironmentAction for RedButtonAction {
 
 /// Per-environment spectator events emitted by the engine.
 ///
-/// These are wrapped in a [`UnifiedEvent`] envelope by the environment-client
+/// These are wrapped in a [`UnifiedEvent`] envelope by the environment-server
 /// service before broadcast to spectator WebSocket subscribers.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "event_name")]

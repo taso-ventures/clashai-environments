@@ -56,5 +56,5 @@ POST /matches/:id/actions
 { "player_id": 0, "action": { "action_type": "speak", "message": "Consider this: ..." } }
 
 POST /matches/:id/reasoning
-{ "player_id": 1, "reasoning": "They're appealing to..." }
+{ "player_id": "1", "reasoning": "The latest appeal is based on curiosity." }
 ```

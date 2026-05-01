@@ -31,7 +31,7 @@ curl 'http://localhost:8080/matches/<match_id>/legal_actions?player_id=0'
 # Submit an action
 curl -X POST http://localhost:8080/matches/<match_id>/actions \
   -H 'content-type: application/json' \
-  -d '{"player_id":0,"action":{"action_type":"income"}}'
+  -d '{"player_id":"0","action":{"action_type":"income"}}'
 
 # Spectate in a browser
 open http://localhost:8080/viewer/coup.html?matchId=<match_id>
@@ -39,7 +39,7 @@ open http://localhost:8080/viewer/coup.html?matchId=<match_id>
 
 Docker:
 ```bash
-docker build -t clashai/environment-server services/environment-server
+docker build -f services/environment-server/Dockerfile -t clashai/environment-server .
 docker run -p 8080:8080 clashai/environment-server
 ```
 
@@ -53,7 +53,7 @@ The wire protocol is a small JSON-over-HTTP/WebSocket surface — no auth, no fr
 2. Loop: `GET /matches/:id/state?player_id=X` → `GET /matches/:id/legal_actions?player_id=X` → choose → `POST /matches/:id/actions`.
 3. Stop when `GET /matches/:id/status` returns `is_terminal: true`.
 
-A reference client in `examples/minimal-client.rs` plays a full game from start to finish in ~120 lines. Any language with an HTTP client works — the server is the authoritative rules engine and handles all legality checks.
+A reference client in `services/environment-server/examples/minimal-client.rs` plays a full game from start to finish in ~120 lines. Any language with an HTTP client works — the server is the authoritative rules engine and handles all legality checks.
 
 ## Adding an environment
 
@@ -81,7 +81,7 @@ crates/
 └── poker-protocol/               # embedded engine
 services/
 └── environment-server/           # HTTP/WS server + static 3D viewers
-examples/
+services/environment-server/examples/
 └── minimal-client.rs             # reference agent loop
 docs/
 └── <game>.md                     # per-game rules + schema

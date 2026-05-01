@@ -247,10 +247,10 @@ fn test_registry_create_tic_tac_toe_smoke() {
         seed: 0,
         extra: HashMap::new(),
         match_id: Some("match-reg".to_string()),
-        player_ids: Some(vec![10, 20]),
+        player_ids: Some(vec!["10".to_string(), "20".to_string()]),
         player_names: Some(HashMap::from([
-            (10, "Alpha".to_string()),
-            (20, "Bravo".to_string()),
+            ("10".to_string(), "Alpha".to_string()),
+            ("20".to_string(), "Bravo".to_string()),
         ])),
     };
 

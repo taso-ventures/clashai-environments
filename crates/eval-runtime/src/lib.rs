@@ -8,104 +8,151 @@ pub use environment::{
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
+macro_rules! extensible_string_enum {
+    (
+        $(#[$meta:meta])*
+        pub enum $name:ident {
+            $(
+                $(#[$variant_meta:meta])*
+                $variant:ident => $wire:literal
+            ),+ $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        pub enum $name {
+            $(
+                $(#[$variant_meta])*
+                $variant,
+            )+
+            Custom(String),
+        }
+
+        impl Serialize for $name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                let value = match self {
+                    $(Self::$variant => $wire,)+
+                    Self::Custom(value) => value,
+                };
+                serializer.serialize_str(value)
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                let value = String::deserialize(deserializer)?;
+                Ok(match value.as_str() {
+                    $($wire => Self::$variant,)+
+                    _ => Self::Custom(value),
+                })
+            }
+        }
+    };
+}
+
 /// Verification status value indicating the step was skipped because the agent
 /// is waiting (dependency not ready). Used by `StandardProviderHarness` and
 /// checked by the sequential orchestrator to avoid treating a waiting skip as
 /// an execution error.
 pub const VERIFICATION_SKIPPED_WAITING: &str = "skipped_waiting";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ExecutionClass {
-    StandardProviderHarness,
-    ExternalAgentRuntime,
+extensible_string_enum! {
+    pub enum ExecutionClass {
+        StandardProviderHarness => "standard_provider_harness",
+        ExternalAgentRuntime => "external_agent_runtime",
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum BenchmarkLane {
-    StructuredAction,
-    ToolAgent,
-    CodeAgent,
-    BrowserAgent,
-    VisionAgent,
-    ConversationalAgent,
-    ResearchAgent,
+extensible_string_enum! {
+    pub enum BenchmarkLane {
+        StructuredAction => "structured_action",
+        ToolAgent => "tool_agent",
+        CodeAgent => "code_agent",
+        BrowserAgent => "browser_agent",
+        VisionAgent => "vision_agent",
+        ConversationalAgent => "conversational_agent",
+        ResearchAgent => "research_agent",
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HarnessProfile {
-    JsonSingleShot,
-    HybridTools,
-    ToolFirst,
-    LongRunningSession,
+extensible_string_enum! {
+    pub enum HarnessProfile {
+        JsonSingleShot => "json_single_shot",
+        HybridTools => "hybrid_tools",
+        ToolFirst => "tool_first",
+        LongRunningSession => "long_running_session",
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SessionMode {
-    Stateless,
-    PerTurnSession,
-    PersistentRunSession,
+extensible_string_enum! {
+    pub enum SessionMode {
+        Stateless => "stateless",
+        PerTurnSession => "per_turn_session",
+        PersistentRunSession => "persistent_run_session",
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SessionContinuationStrategy {
-    ServerPreviousResponseId,
-    ClientReplay,
-    ClientReplayWithPromptCaching,
-    ClientReplayWithThoughtSignatures,
-    ServerEncryptedResume,
+extensible_string_enum! {
+    pub enum SessionContinuationStrategy {
+        ServerPreviousResponseId => "server_previous_response_id",
+        ClientReplay => "client_replay",
+        ClientReplayWithPromptCaching => "client_replay_with_prompt_caching",
+        ClientReplayWithThoughtSignatures => "client_replay_with_thought_signatures",
+        ServerEncryptedResume => "server_encrypted_resume",
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SessionPhase {
-    Working,
-    Final,
+extensible_string_enum! {
+    pub enum SessionPhase {
+        Working => "working",
+        Final => "final",
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ToolAuthorityPolicy {
-    EnvironmentOnly,
-    ClientToolsAllowed,
-    ProviderServerToolsAllowed,
-    Mixed,
+extensible_string_enum! {
+    pub enum ToolAuthorityPolicy {
+        EnvironmentOnly => "environment_only",
+        ClientToolsAllowed => "client_tools_allowed",
+        ProviderServerToolsAllowed => "provider_server_tools_allowed",
+        Mixed => "mixed",
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ProviderSurfacePolicy {
-    NativeOnly,
-    CompatibilityAllowed,
-    CompatibilityOnly,
-    Pinned,
+extensible_string_enum! {
+    pub enum ProviderSurfacePolicy {
+        NativeOnly => "native_only",
+        CompatibilityAllowed => "compatibility_allowed",
+        CompatibilityOnly => "compatibility_only",
+        Pinned => "pinned",
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ProviderFamily {
-    FirstParty,
-    Aggregator,
+extensible_string_enum! {
+    pub enum ProviderFamily {
+        FirstParty => "first_party",
+        Aggregator => "aggregator",
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ApiSurface {
-    OpenAiChatCompletions,
-    OpenAiResponses,
-    OpenAiCompatibleChat,
-    AnthropicMessages,
-    GeminiDirect,
-    GeminiOpenAiCompatibility,
-    OpenRouterChatCompletions,
-    OpenRouterResponsesBeta,
-    XaiChatCompletions,
-    XaiResponses,
-    Custom,
+extensible_string_enum! {
+    pub enum ApiSurface {
+        OpenAiChatCompletions => "open_ai_chat_completions",
+        OpenAiResponses => "open_ai_responses",
+        OpenAiCompatibleChat => "open_ai_compatible_chat",
+        AnthropicMessages => "anthropic_messages",
+        GeminiDirect => "gemini_direct",
+        GeminiOpenAiCompatibility => "gemini_open_ai_compatibility",
+        OpenRouterChatCompletions => "open_router_chat_completions",
+        OpenRouterResponsesBeta => "open_router_responses_beta",
+        XaiChatCompletions => "xai_chat_completions",
+        XaiResponses => "xai_responses",
+    }
 }
 
 /// Canonical information about the current turn state.
@@ -422,14 +469,14 @@ impl EvalTraceEvent {
             step_index,
             event_type,
             timestamp_ms: current_timestamp_ms(),
-            execution_class: spec.execution_class,
-            benchmark_lane: spec.benchmark_lane,
+            execution_class: spec.execution_class.clone(),
+            benchmark_lane: spec.benchmark_lane.clone(),
             environment_type: spec.environment_type.clone(),
             competitor_id: spec.competitor_id.clone(),
             competitor_version: spec.competitor_version.clone(),
-            provider_family: Some(spec.provider_family),
-            api_surface: Some(spec.api_surface),
-            harness_profile: Some(spec.run_policy.profile),
+            provider_family: Some(spec.provider_family.clone()),
+            api_surface: Some(spec.api_surface.clone()),
+            harness_profile: Some(spec.run_policy.profile.clone()),
             request_index: None,
             tool_sequence_number: None,
             payload,

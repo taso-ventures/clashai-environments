@@ -68,7 +68,7 @@ fn test_default_config_values() {
     assert!(!cfg.allow_empty_speak);
     assert!(cfg.publish_reasoning_live);
     assert!(cfg.archive_reasoning);
-    assert!(cfg.raw_reasoning_enabled);
+    assert!(!cfg.raw_reasoning_enabled);
 }
 
 // -----------------------------------------------------------------------

@@ -147,6 +147,42 @@ async fn test_get_state_returns_initial_state() {
     );
 }
 
+#[tokio::test]
+async fn test_get_state_without_player_id_returns_full_state() {
+    let (addr, _shutdown) = spawn_app().await;
+    let base = format!("http://{addr}");
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "environment_type": "coup",
+        "player_count": 2,
+        "seed": 42
+    });
+    let resp = client
+        .post(format!("{base}/matches"))
+        .json(&body)
+        .send()
+        .await
+        .expect("create coup match");
+    assert_eq!(resp.status(), StatusCode::OK);
+    let created: serde_json::Value = resp.json().await.expect("json");
+    let match_id = created["match_id"].as_str().expect("match_id");
+
+    let resp = client
+        .get(format!("{base}/matches/{match_id}/state"))
+        .send()
+        .await
+        .expect("GET full state");
+    assert_eq!(resp.status(), StatusCode::OK);
+    let full: serde_json::Value = resp.json().await.expect("json");
+    let opponent_role = full["state"]["players"]["1"]["cards"][0]["role"]
+        .as_str()
+        .expect("opponent card role");
+    assert_ne!(
+        opponent_role, "unknown",
+        "omitting player_id should return the authoritative full state"
+    );
+}
+
 // -----------------------------------------------------------------------
 // T3. Legal actions
 // -----------------------------------------------------------------------
@@ -251,6 +287,29 @@ async fn test_wrong_actor_action_rejected() {
         resp.status(),
         StatusCode::BAD_REQUEST,
         "wrong actor should get 400"
+    );
+}
+
+#[tokio::test]
+async fn test_malformed_action_returns_400() {
+    let (addr, _shutdown) = spawn_app().await;
+    let base = format!("http://{addr}");
+    let match_id = create_red_button_match(&base).await;
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("{base}/matches/{match_id}/actions"))
+        .json(&serde_json::json!({
+            "player_id": "0",
+            "action": { "message": "missing action_type" }
+        }))
+        .send()
+        .await
+        .expect("POST malformed action");
+    assert_eq!(
+        resp.status(),
+        StatusCode::BAD_REQUEST,
+        "malformed model actions should be client errors"
     );
 }
 

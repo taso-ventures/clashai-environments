@@ -27,13 +27,13 @@ Request:
   "player_count": 2,
   "seed": 42,
   "match_id": "optional-override-ulid",
-  "player_ids": [0, 1],
+  "player_ids": ["0", "1"],
   "player_names": {"0": "Alice", "1": "Bob"},
   "extra": {}
 }
 ```
 
-Only `environment_type` is required. Defaults: `player_count=2`, `seed=random`, `match_id=ULID`, `player_ids=[0..player_count)`, `player_names={}`, `extra={}`. `environment_type` is one of: `coup`, `vibe_check`, `red_button`, `wordle`, `poker`, `tic_tac_toe`, `connect_four`.
+Only `environment_type` is required. Defaults: `player_count=2`, `seed=random`, `match_id=ULID`, `player_ids=["0"..player_count)`, `player_names={}`, `extra={}`. `environment_type` is one of: `coup`, `vibe_check`, `red_button`, `wordle`, `poker`, `tic_tac_toe`, `connect_four`. Player IDs are strings at the server boundary; numeric JSON IDs are accepted for compatibility and normalized to strings.
 
 Response `200`:
 ```json
@@ -74,11 +74,11 @@ Response `200`: `{ "accepted": true, "events": {...}, "is_terminal": false }` on
 
 ### `POST /matches/:id/reasoning`
 
-Optional — forward LLM chain-of-thought to spectators as a side-channel event. Does not affect game state.
+Optional — forward a sanitized agent rationale or telemetry summary to spectators as a side-channel event. Do not send private model traces or provider-private data. This endpoint does not affect game state.
 
 Request:
 ```json
-{ "player_id": 0, "reasoning": "I'll play Duke to collect tax safely..." }
+{ "player_id": "0", "reasoning": "I am choosing a low-risk opening action." }
 ```
 
 Response `204` on success.
@@ -115,12 +115,19 @@ After catchup, live events are pushed as they occur. Each event is a `UnifiedEve
 {
   "event_id": "01HZ...",
   "sequence": 42,
-  "timestamp": "2026-04-16T12:34:56.789Z",
+  "timestamp_ms": 1776342896789,
   "environment_type": "coup",
   "match_id": "01HZ...",
   "event_type": "action",
-  "actor": { "player_id": 0, "player_name": "Alice" },
-  "payload": { /* environment-specific */ }
+  "actor": { "player_id": "0", "agent_name": "Alice" },
+  "action": { /* environment-specific */ },
+  "reasoning": {
+    "text": "I am choosing a low-risk opening action.",
+    "tokens_in": 123,
+    "tokens_out": 45,
+    "latency_ms": 900
+  },
+  "is_terminal": false
 }
 ```
 

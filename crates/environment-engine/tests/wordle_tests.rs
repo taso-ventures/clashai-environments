@@ -91,11 +91,11 @@ fn test_registry_create_wordle_smoke() {
         seed: 99,
         extra,
         match_id: Some("match-registry".to_string()),
-        player_ids: Some(vec![11, 12, 13]),
+        player_ids: Some(vec!["11".to_string(), "12".to_string(), "13".to_string()]),
         player_names: Some(HashMap::from([
-            (11, "A".to_string()),
-            (12, "B".to_string()),
-            (13, "C".to_string()),
+            ("11".to_string(), "A".to_string()),
+            ("12".to_string(), "B".to_string()),
+            ("13".to_string(), "C".to_string()),
         ])),
     };
 

@@ -413,7 +413,7 @@ impl RedButtonGame {
     // Accessors
     // -----------------------------------------------------------------------
 
-    /// Expose the config for use by the environment-client service.
+    /// Expose the config for use by the environment-server service.
     pub fn config(&self) -> &RedButtonConfig {
         &self.config
     }

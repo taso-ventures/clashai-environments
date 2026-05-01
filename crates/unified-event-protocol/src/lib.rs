@@ -4,7 +4,7 @@
 //! The [`UnifiedEvent`] type wraps per-environment spectator events in a
 //! standard envelope that provides:
 //!
-//! - First-class reasoning data with a consistent shape across all environments
+//! - Optional sanitized rationale data with a consistent shape across environments
 //! - Actor metadata (model, provider) for cross-model analytics
 //! - Monotonic sequence numbers for replay, catch-up, and gap detection
 //! - Standard event types usable by any downstream consumer
@@ -12,7 +12,8 @@
 //! # Backward compatibility
 //!
 //! Existing Coup and VibeCheck viewers consume the `action` field directly.
-//! The `reasoning` field is additive — existing viewers can ignore it
+//! The `reasoning` field is additive and should contain sanitized rationale text,
+//! not private model traces. Existing viewers can ignore it
 //! and progressively add a reasoning panel.
 
 use chrono::Utc;
@@ -66,13 +67,13 @@ pub struct EventActor {
 // Reasoning Payload
 // =====================
 
-/// LLM reasoning trace attached to an `Action` event.
+/// Sanitized agent rationale attached to an `Action` event.
 ///
-/// Shape is identical across all environments, enabling cross-environment
-/// eval analytics without joins.
+/// Shape is identical across all environments, enabling cross-environment eval
+/// analytics without exposing private model traces or provider-private data.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventReasoning {
-    /// Full reasoning / scratchpad text from the LLM.
+    /// Sanitized rationale or summary intended for telemetry/spectators.
     pub text: String,
     /// Prompt (input) token count, when reported by the provider.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -117,7 +118,7 @@ pub struct UnifiedEvent {
     /// Environment-specific action payload (opaque JSON).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action: Option<serde_json::Value>,
-    /// LLM reasoning trace, present on `Action` events when available.
+    /// Sanitized agent rationale, present on `Action` events when available.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning: Option<EventReasoning>,
     /// Whether the match is in a terminal state after this event.

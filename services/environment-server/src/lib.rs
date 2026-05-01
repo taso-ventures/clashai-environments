@@ -11,7 +11,7 @@
 //! GET    /matches/:id/state               — query player-filtered state
 //! GET    /matches/:id/legal_actions       — legal actions for active player
 //! POST   /matches/:id/actions             — submit a player action
-//! POST   /matches/:id/reasoning           — forward LLM reasoning to spectators
+//! POST   /matches/:id/reasoning           — forward sanitized rationale to spectators
 //! GET    /matches/:id/status              — match status (terminal, winner, turn)
 //! GET    /matches/:id/player_names        — player id → name mapping
 //! GET    /matches/:id/spectator/ws        — WebSocket spectator stream
@@ -29,7 +29,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize};
 use tokio::sync::{broadcast, RwLock};
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
@@ -49,7 +49,7 @@ type BroadcastSender = broadcast::Sender<serde_json::Value>;
 pub struct MatchInstance {
     pub environment: Arc<RwLock<BoxEnv>>,
     pub broadcaster: BroadcastSender,
-    pub player_names: HashMap<i32, String>,
+    pub player_names: HashMap<String, String>,
     pub environment_type: String,
     pub sequence: std::sync::atomic::AtomicU64,
     /// Append-only log of all broadcast events for spectator catchup on connect.
@@ -100,7 +100,7 @@ impl AppState {
         }
     }
 
-    pub async fn redis_store_player_names(&self, match_id: &str, names: &HashMap<i32, String>) {
+    pub async fn redis_store_player_names(&self, match_id: &str, names: &HashMap<String, String>) {
         let Some(ref redis) = self.redis else { return };
         let key = format!("spectator:{match_id}:player_names");
         let mut conn = redis.clone();
@@ -119,7 +119,7 @@ impl AppState {
     pub async fn redis_load_replay(
         &self,
         match_id: &str,
-    ) -> Option<(Vec<serde_json::Value>, HashMap<i32, String>)> {
+    ) -> Option<(Vec<serde_json::Value>, HashMap<String, String>)> {
         let redis = self.redis.as_ref()?;
         let mut conn = redis.clone();
 
@@ -136,7 +136,7 @@ impl AppState {
             .filter_map(|s| serde_json::from_str(&s).ok())
             .collect();
 
-        let names: HashMap<i32, String> = conn
+        let names: HashMap<String, String> = conn
             .get::<_, Option<String>>(&names_key)
             .await
             .ok()
@@ -180,8 +180,9 @@ pub struct CreateMatchRequest {
     pub player_count: Option<usize>,
     pub seed: Option<u64>,
     pub match_id: Option<String>,
-    pub player_names: Option<HashMap<i32, String>>,
-    pub player_ids: Option<Vec<i32>>,
+    pub player_names: Option<HashMap<String, String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_player_ids")]
+    pub player_ids: Option<Vec<String>>,
     #[serde(default)]
     pub extra: HashMap<String, serde_json::Value>,
 }
@@ -195,19 +196,22 @@ pub struct CreateMatchResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct SubmitActionRequest {
-    pub player_id: i32,
+    #[serde(deserialize_with = "deserialize_player_id")]
+    pub player_id: String,
     pub action: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SubmitReasoningRequest {
-    pub player_id: i32,
+    #[serde(deserialize_with = "deserialize_player_id")]
+    pub player_id: String,
     pub reasoning: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct StateQuery {
-    pub player_id: Option<i32>,
+    #[serde(default, deserialize_with = "deserialize_optional_player_id")]
+    pub player_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -220,6 +224,60 @@ pub struct MatchStatusResponse {
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
     pub error: String,
+}
+
+fn deserialize_player_id<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum PlayerIdWire {
+        String(String),
+        Signed(i64),
+        Unsigned(u64),
+    }
+
+    match PlayerIdWire::deserialize(deserializer)? {
+        PlayerIdWire::String(id) => Ok(id),
+        PlayerIdWire::Signed(id) => Ok(id.to_string()),
+        PlayerIdWire::Unsigned(id) => Ok(id.to_string()),
+    }
+}
+
+fn deserialize_optional_player_id<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let Some(value) = Option::<serde_json::Value>::deserialize(deserializer)? else {
+        return Ok(None);
+    };
+    player_id_from_value(value)
+        .map(Some)
+        .map_err(de::Error::custom)
+}
+
+fn deserialize_optional_player_ids<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let Some(values) = Option::<Vec<serde_json::Value>>::deserialize(deserializer)? else {
+        return Ok(None);
+    };
+    values
+        .into_iter()
+        .map(player_id_from_value)
+        .collect::<Result<Vec<_>, _>>()
+        .map(Some)
+        .map_err(de::Error::custom)
+}
+
+fn player_id_from_value(value: serde_json::Value) -> Result<String, String> {
+    match value {
+        serde_json::Value::String(id) => Ok(id),
+        serde_json::Value::Number(number) => Ok(number.to_string()),
+        other => Err(format!("player id must be a string or number, got {other}")),
+    }
 }
 
 // =====================

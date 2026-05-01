@@ -1,7 +1,7 @@
 //! Red Button environment adapter implementing [`Environment`].
 //!
 //! Wraps [`red_button_protocol::RedButtonGame`] and exposes it through the
-//! uniform [`Environment`] interface so the registry and environment-client
+//! uniform [`Environment`] interface so the registry and environment-server
 //! service can treat all environments identically.
 
 use std::collections::HashMap;

@@ -13,7 +13,7 @@ use serde_json;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{info, warn};
 
-use environment_engine::EnvironmentConfig;
+use environment_engine::{EnvironmentConfig, EnvironmentError};
 use unified_event_protocol::UnifiedEvent;
 
 use crate::{
@@ -83,7 +83,8 @@ pub async fn create_match(
         seed,
         extra: request.extra.clone(),
         match_id: Some(match_id.clone()),
-        player_ids: player_ids.or_else(|| Some((0..player_count as i32).collect())),
+        player_ids: player_ids
+            .or_else(|| Some((0..player_count).map(|id| id.to_string()).collect())),
         player_names: if player_names.is_empty() {
             None
         } else {
@@ -182,13 +183,15 @@ pub async fn get_state(
         return not_found(&match_id);
     };
     let env = inst.environment.read().await;
-    let player_id_str = query
-        .player_id
-        .map(|id| id.to_string())
-        .unwrap_or_else(|| "0".to_string());
-    match env.state_for_player(&player_id_str) {
-        Ok(state_json) => Json(serde_json::json!({ "state": state_json })).into_response(),
-        Err(e) => internal(e),
+    match query.player_id.as_deref() {
+        Some(player_id) => match env.state_for_player(player_id) {
+            Ok(state_json) => Json(serde_json::json!({ "state": state_json })).into_response(),
+            Err(e) => internal(e),
+        },
+        None => match env.full_state() {
+            Ok(state_json) => Json(serde_json::json!({ "state": state_json })).into_response(),
+            Err(e) => internal(e),
+        },
     }
 }
 
@@ -205,12 +208,11 @@ pub async fn get_legal_actions(
     let Some(inst) = map.get(&match_id) else {
         return not_found(&match_id);
     };
+    let Some(player_id) = query.player_id.as_deref() else {
+        return bad_request("player_id is required for legal_actions");
+    };
     let env = inst.environment.read().await;
-    let player_id_str = query
-        .player_id
-        .map(|id| id.to_string())
-        .unwrap_or_else(|| "0".to_string());
-    match env.legal_actions(&player_id_str) {
+    match env.legal_actions(player_id) {
         Ok(actions_json) => Json(actions_json).into_response(),
         Err(e) => internal(e),
     }
@@ -230,11 +232,10 @@ pub async fn submit_action(
         return not_found(&match_id);
     };
 
-    let player_id_str = request.player_id.to_string();
     let mut env = inst.environment.write().await;
     let was_terminal = env.is_terminal();
 
-    match env.apply_action(&player_id_str, &request.action) {
+    match env.apply_action(&request.player_id, &request.action) {
         Ok(events_json) => {
             let seq = inst.sequence.fetch_add(1, Ordering::SeqCst);
             let is_terminal = env.is_terminal();
@@ -266,25 +267,22 @@ pub async fn submit_action(
             }))
             .into_response()
         }
-        Err(e) => {
-            let err_msg = e.to_string();
-            if err_msg.contains("wrong actor")
-                || err_msg.contains("not legal")
-                || err_msg.contains("already terminated")
-                || err_msg.contains("Invalid action")
-            {
-                (
-                    StatusCode::BAD_REQUEST,
-                    Json(serde_json::json!({
-                        "accepted": false,
-                        "error": err_msg,
-                    })),
-                )
-                    .into_response()
-            } else {
-                internal(err_msg)
+        Err(e) => match e {
+            err @ (EnvironmentError::InvalidAction(_)
+            | EnvironmentError::UnknownPlayer(_)
+            | EnvironmentError::AlreadyTerminated
+            | EnvironmentError::SerializationError(_)) => (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "accepted": false,
+                    "error": err.to_string(),
+                })),
+            )
+                .into_response(),
+            err @ (EnvironmentError::InvalidSetup(_) | EnvironmentError::Internal(_)) => {
+                internal(err)
             }
-        }
+        },
     }
 }
 

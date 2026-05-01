@@ -120,7 +120,7 @@ impl EnvironmentRegistry {
             registry.register(
                 "vibe_check",
                 EnvironmentMeta {
-                    display_name: "Wavelength",
+                    display_name: "Vibe Check",
                     min_players: 4,
                     max_players: 6,
                     post_match_visibility: PostMatchVisibility::OwnOnly,
@@ -152,12 +152,8 @@ impl EnvironmentRegistry {
                         .and_then(|v| serde_json::from_value(v).ok())
                         .unwrap_or_default();
 
-                    let player_ids: Vec<i32> = config
-                        .player_ids
-                        .clone()
-                        .unwrap_or_else(|| (0..config.player_count as i32).collect());
-
-                    let player_names = config.player_names.clone().unwrap_or_default();
+                    let player_ids = parse_i32_player_ids(config)?;
+                    let player_names = parse_i32_player_names(config)?;
 
                     let match_id = config
                         .match_id
@@ -186,12 +182,8 @@ impl EnvironmentRegistry {
                     post_match_visibility: PostMatchVisibility::Full,
                 },
                 Arc::new(|config| {
-                    let player_ids: Vec<i32> = config
-                        .player_ids
-                        .clone()
-                        .unwrap_or_else(|| (0..config.player_count as i32).collect());
-
-                    let player_names = config.player_names.clone().unwrap_or_default();
+                    let player_ids = parse_i32_player_ids(config)?;
+                    let player_names = parse_i32_player_names(config)?;
 
                     let match_id = config
                         .match_id
@@ -219,12 +211,8 @@ impl EnvironmentRegistry {
                     post_match_visibility: PostMatchVisibility::Full,
                 },
                 Arc::new(|config| {
-                    let player_ids: Vec<i32> = config
-                        .player_ids
-                        .clone()
-                        .unwrap_or_else(|| (0..config.player_count as i32).collect());
-
-                    let player_names = config.player_names.clone().unwrap_or_default();
+                    let player_ids = parse_i32_player_ids(config)?;
+                    let player_names = parse_i32_player_names(config)?;
 
                     let match_id = config
                         .match_id
@@ -264,12 +252,8 @@ impl EnvironmentRegistry {
                         }
                     };
 
-                    let player_ids: Vec<i32> = config
-                        .player_ids
-                        .clone()
-                        .unwrap_or_else(|| (0..config.player_count as i32).collect());
-
-                    let player_names = config.player_names.clone().unwrap_or_default();
+                    let player_ids = parse_i32_player_ids(config)?;
+                    let player_names = parse_i32_player_names(config)?;
 
                     let match_id = config
                         .match_id
@@ -310,4 +294,36 @@ impl Default for EnvironmentRegistry {
     fn default() -> Self {
         Self::with_defaults()
     }
+}
+
+fn parse_i32_player_ids(config: &EnvironmentConfig) -> Result<Vec<i32>> {
+    config
+        .player_ids
+        .clone()
+        .unwrap_or_else(|| (0..config.player_count).map(|id| id.to_string()).collect())
+        .into_iter()
+        .map(|id| {
+            id.parse::<i32>().map_err(|_| {
+                EnvironmentError::InvalidSetup(format!(
+                    "player_id '{id}' must be a 32-bit integer for this environment"
+                ))
+            })
+        })
+        .collect()
+}
+
+fn parse_i32_player_names(config: &EnvironmentConfig) -> Result<HashMap<i32, String>> {
+    config
+        .player_names
+        .clone()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(id, name)| {
+            id.parse::<i32>().map(|parsed| (parsed, name)).map_err(|_| {
+                EnvironmentError::InvalidSetup(format!(
+                    "player_names key '{id}' must be a 32-bit integer for this environment"
+                ))
+            })
+        })
+        .collect()
 }

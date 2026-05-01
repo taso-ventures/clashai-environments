@@ -167,12 +167,13 @@ pub struct EnvironmentConfig {
     #[serde(default)]
     pub match_id: Option<String>,
 
-    /// Optional explicit player IDs.  When absent, IDs are generated as
-    /// `0..player_count` by convention.
+    /// Optional explicit player IDs. When absent, IDs are generated as
+    /// stringified `0..player_count` by convention. Built-in numeric games parse
+    /// these strings at adapter boundaries.
     #[serde(default)]
-    pub player_ids: Option<Vec<i32>>,
+    pub player_ids: Option<Vec<String>>,
 
-    /// Optional player display-name map (`player_id` → name).
+    /// Optional player display-name map (`player_id` -> name).
     #[serde(default)]
-    pub player_names: Option<HashMap<i32, String>>,
+    pub player_names: Option<HashMap<String, String>>,
 }
