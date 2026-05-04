@@ -2,7 +2,7 @@
 
 Multi-player Wordle variant. Each player has their own hidden 5-letter target. Players cycle turns submitting guesses; feedback is public (per letter: `correct` / `present` / `absent`). First player to solve their own word wins; after the last guess, remaining players enter a Banter phase to speak freely before the match ends.
 
-Canonical Wordle rules: <https://www.nytimes.com/games/wordle>. Uses the widely-distributed open guess/answer word lists. No trademark use — this is a multi-player variant, not "Wordle" the branded NYT product.
+Canonical Wordle rules: <https://www.nytimes.com/games/wordle>. Uses publicly-distributed open guess/answer word lists; see [`crates/wordle-protocol/resources/PROVENANCE.md`](../crates/wordle-protocol/resources/PROVENANCE.md) for sourcing notes and how to swap them. No trademark use — this is a multi-player variant, not "Wordle" the branded NYT product.
 
 ## Actions
 

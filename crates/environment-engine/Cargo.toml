@@ -1,17 +1,14 @@
 [package]
 name = "environment-engine"
-version = "0.8.0"
+version = "0.1.0"
 edition = "2021"
 description = "Environment-agnostic game engine trait and implementations"
 authors = []
 license = "MIT"
+repository = "https://github.com/taso-ventures/clashai-environments"
 publish = false
 
 [dependencies]
-# Async
-async-trait = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
-
 # Serialization
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

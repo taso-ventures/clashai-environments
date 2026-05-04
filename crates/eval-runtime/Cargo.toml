@@ -2,14 +2,15 @@
 name = "eval-runtime"
 version = "0.1.0"
 edition = "2021"
-description = "Shared runtime contracts and turn/event trace types for game environments"
+description = "Environment trait contracts and turn metadata for game environments"
 authors = []
 license = "MIT"
+repository = "https://github.com/taso-ventures/clashai-environments"
 publish = false
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }

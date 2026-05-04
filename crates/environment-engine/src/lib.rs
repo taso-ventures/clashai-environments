@@ -1,8 +1,8 @@
 //! Environment-agnostic engine trait and implementations.
 //!
 //! This crate defines [`Environment`], a synchronous trait that wraps
-//! any turn-based environment behind a uniform interface. Each environment
-//! (Coup, future environments) implements this trait to provide:
+//! any turn-based environment behind a uniform interface. Each game
+//! implements this trait to provide:
 //!
 //! - Environment lifecycle (create, apply actions, check terminal state)
 //! - Player-filtered state views (fog of war)
@@ -11,9 +11,10 @@
 //!
 //! # Feature flags
 //!
-//! - `coup` (default) — enables [`CoupEnvironment`](coup::CoupEnvironment)
+//! Each environment is gated behind its own feature (`coup`, `vibe_check`,
+//! `wordle`, `tic_tac_toe`, `connect_four`, `red_button`, `poker`); all are
+//! enabled by default.
 
-pub mod async_env;
 #[cfg(feature = "connect_four")]
 pub mod connect_four;
 #[cfg(feature = "coup")]
@@ -30,7 +31,6 @@ pub mod vibe_check;
 #[cfg(feature = "wordle")]
 pub mod wordle;
 
-pub use async_env::{AsyncEnvironment, SyncAdapter};
 pub use eval_runtime::TurnInfo;
 
 use std::collections::HashMap;

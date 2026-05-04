@@ -91,6 +91,8 @@ docs/
 
 MIT. See [`LICENSE`](LICENSE). See [`CONTRIBUTORS.md`](CONTRIBUTORS.md) for authors and credit to original game designers for non-public-domain games.
 
+The "ClashAI" name and wordmark are trademarks of ClashAI and are **not** covered by the MIT license — see [`TRADEMARKS.md`](TRADEMARKS.md). If you fork or republish, remove or replace the wordmark and brand strings.
+
 ## Contributing
 
 - New environments: follow the "Adding an environment" checklist above.

@@ -40,11 +40,6 @@ thiserror = "2"
 # Utilities
 chrono = { version = "0.4", features = ["serde"] }
 ulid = { version = "1.2", features = ["serde"] }
-async-trait = "0.1"
-humantime-serde = "1.1"
-
-# Testing
-tokio-test = "0.4"
 
 [profile.dev]
 debug = "line-tables-only"

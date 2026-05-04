@@ -5,6 +5,7 @@ edition = "2021"
 description = "Unified event envelope for cross-environment spectator streaming, replay, and eval analytics"
 authors = []
 license = "MIT"
+repository = "https://github.com/taso-ventures/clashai-environments"
 publish = false
 
 [dependencies]

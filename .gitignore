@@ -2,9 +2,10 @@
 **/*.rs.bk
 Cargo.lock.bak
 
-# IDE
+# IDE / dev tools
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 
@@ -18,3 +19,6 @@ Thumbs.db
 
 # Audit notes backported to internal repo, not published
 AUDIT_BUGS.md
+
+# Claude Code project guidance (local-only)
+CLAUDE.md

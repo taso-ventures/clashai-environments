@@ -51,3 +51,7 @@ Zones are centered on the target position:
 - 0.0 = fully the left endpoint
 - 1.0 = fully the right endpoint
 - 0.5 = exactly between both endpoints
+
+## Spectrum card deck
+
+The bundled deck in `spectrum_cards.json` is original; pairs that happened to overlap with examples from published Wavelength promotional materials were replaced with original pairs in the OSS release. Contributions of new spectrum pairs are welcome — any antonym pair plus an optional category will work.

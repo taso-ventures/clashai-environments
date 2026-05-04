@@ -65,9 +65,23 @@ pub struct AppState {
     pub redis: Option<redis::aio::ConnectionManager>,
 }
 
-/// TTL for Redis replay keys: 7 days (matches gateway replay.rs REDIS_TTL_SECS).
+/// TTL for Redis replay keys: 7 days.
 /// i64 because redis::expire requires it.
 const REDIS_TTL_SECS: i64 = 604_800;
+
+/// Maximum number of spectator events retained per match for catchup-on-connect.
+/// When a match exceeds this, the oldest entries are evicted FIFO. The live
+/// broadcast stream is unaffected — only late-joining spectators see the
+/// truncated tail.
+pub const EVENT_LOG_CAP: usize = 5_000;
+
+/// Append `event` to `log`, evicting the oldest entry if the cap is exceeded.
+pub fn push_event_capped(log: &mut Vec<serde_json::Value>, event: serde_json::Value) {
+    if log.len() >= EVENT_LOG_CAP {
+        log.remove(0);
+    }
+    log.push(event);
+}
 
 impl AppState {
     pub fn new(public_base_url: String, ws_capacity: usize) -> Self {
@@ -286,18 +300,17 @@ fn player_id_from_value(value: serde_json::Value) -> Result<String, String> {
 
 pub fn build_router(state: AppState) -> Router {
     // Determine the static directory path.
-    // In debug builds, fall back to CARGO_MANIFEST_DIR so `cargo run` works from
-    // the workspace root without setting STATIC_DIR.  In release / Docker the
-    // env var (or relative "static") is used instead.
+    // Docker sets STATIC_DIR explicitly. Otherwise fall back to CARGO_MANIFEST_DIR
+    // (the path is baked in at compile time) so `cargo run [--release]` works from
+    // the workspace root. The runtime existence check guards against the source
+    // tree being absent on the host.
     let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| {
-        #[cfg(debug_assertions)]
-        {
-            let manifest_relative = concat!(env!("CARGO_MANIFEST_DIR"), "/static");
-            if std::path::Path::new(manifest_relative).is_dir() {
-                return manifest_relative.to_string();
-            }
+        let manifest_relative = concat!(env!("CARGO_MANIFEST_DIR"), "/static");
+        if std::path::Path::new(manifest_relative).is_dir() {
+            manifest_relative.to_string()
+        } else {
+            "static".to_string()
         }
-        "static".to_string()
     });
 
     Router::new()
@@ -310,9 +323,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/matches/:id/status", get(routes::get_status))
         .route("/matches/:id/player_names", get(routes::get_player_names))
         .route("/matches/:id/spectator/ws", get(routes::spectator_ws))
-        // Serve the 3D viewer (static/viewer/) and legacy static assets.
+        // Serve the 3D viewer assets out of static/viewer/.
         .nest_service("/viewer", ServeDir::new(format!("{static_dir}/viewer")))
-        .nest_service("/legacy-viewer", ServeDir::new(&static_dir))
         .layer(CorsLayer::permissive())
         .with_state(state)
 }

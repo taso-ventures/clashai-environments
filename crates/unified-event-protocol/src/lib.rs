@@ -52,7 +52,7 @@ pub struct EventActor {
     /// Role name as a string (environment-specific, e.g. `"persuader"`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<String>,
-    /// Opaque agent ID registered in the gateway.
+    /// Opaque agent identifier supplied by the operator.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_id: Option<String>,
     /// Human-readable agent display name.

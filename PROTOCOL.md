@@ -109,6 +109,8 @@ WebSocket. On connect the server sends the full event log wrapped between bracke
 {"catchup_end": true}
 ```
 
+The catchup log is capped at the most recent **5 000 events** per match (`EVENT_LOG_CAP` in `services/environment-server/src/lib.rs`). Once a match exceeds that, the oldest events are evicted FIFO and only the tail is replayed to late-joining spectators. The live broadcast stream is unaffected — every event is delivered to subscribers in real time regardless of cap.
+
 After catchup, live events are pushed as they occur. Each event is a `UnifiedEvent` envelope:
 
 ```json

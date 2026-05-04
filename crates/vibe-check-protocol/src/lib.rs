@@ -526,7 +526,8 @@ pub struct CreateMatchRequest {
     pub seed: Option<u64>,
     pub player_names: Option<Vec<String>>,
     /// Optional caller-provided match ID. When supplied the service uses this
-    /// instead of generating a new ULID, keeping gateway and client IDs in sync.
+    /// instead of generating a new ULID, letting callers correlate match IDs
+    /// across systems.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub match_id: Option<String>,
 }

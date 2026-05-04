@@ -6,6 +6,10 @@
 //!
 //! The client picks legal actions uniformly at random. Swap in your own
 //! policy / LLM inside `choose_action()` to build a real agent.
+//!
+//! Flags / env vars:
+//!   `--game <env_type>`     environment to play (default: `tic_tac_toe`)
+//!   `SERVER_URL=<url>`      override the default server (default: `http://localhost:8080`)
 
 use std::env;
 use std::time::Duration;

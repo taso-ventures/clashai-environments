@@ -17,8 +17,8 @@ use environment_engine::{EnvironmentConfig, EnvironmentError};
 use unified_event_protocol::UnifiedEvent;
 
 use crate::{
-    AppState, CreateMatchRequest, CreateMatchResponse, ErrorResponse, MatchInstance,
-    MatchStatusResponse, StateQuery, SubmitActionRequest, SubmitReasoningRequest,
+    push_event_capped, AppState, CreateMatchRequest, CreateMatchResponse, ErrorResponse,
+    MatchInstance, MatchStatusResponse, StateQuery, SubmitActionRequest, SubmitReasoningRequest,
 };
 
 // =====================
@@ -110,15 +110,15 @@ pub async fn create_match(
     );
 
     let (tx, _rx) = broadcast::channel::<serde_json::Value>(state.ws_capacity);
-    let init_value = serde_json::to_value(&init_event).unwrap_or_default();
+    let init_value = serde_json::to_value(&init_event).expect("UnifiedEvent always serializes");
 
     // Seed event log with match_start so spectators connecting later receive it.
     let event_log = RwLock::new(vec![init_value.clone()]);
 
     // Persist initial event + player names to Redis.
     // NOTE: Only the init event is stored here. Full event streaming to Redis
-    // during live play is planned but not yet implemented. The gateway's
-    // ReplayService reconstructs complete replays from the database instead.
+    // during live play is planned but not yet implemented; the in-memory
+    // event_log handles spectator catchup in the meantime.
     if let Ok(json) = serde_json::to_string(&init_event) {
         state.redis_store_event(&match_id, &json).await;
     }
@@ -256,8 +256,12 @@ pub async fn submit_action(
                     is_terminal,
                 )
             };
-            let event_value = serde_json::to_value(&unified).unwrap_or(events_json.clone());
-            inst.event_log.write().await.push(event_value.clone());
+            let event_value =
+                serde_json::to_value(&unified).expect("UnifiedEvent always serializes");
+            {
+                let mut log = inst.event_log.write().await;
+                push_event_capped(&mut log, event_value.clone());
+            }
             let _ = inst.broadcaster.send(event_value);
 
             Json(serde_json::json!({
@@ -311,8 +315,11 @@ pub async fn submit_reasoning(
             "reasoning": request.reasoning,
         }),
     );
-    let event_value = serde_json::to_value(&event).unwrap_or_default();
-    inst.event_log.write().await.push(event_value.clone());
+    let event_value = serde_json::to_value(&event).expect("UnifiedEvent always serializes");
+    {
+        let mut log = inst.event_log.write().await;
+        push_event_capped(&mut log, event_value.clone());
+    }
     let _ = inst.broadcaster.send(event_value);
 
     StatusCode::NO_CONTENT.into_response()
