@@ -145,26 +145,25 @@ pub async fn create_match(
         .insert(match_id.clone(), instance);
 
     let viewer_page = match env_type.as_str() {
-        "coup" => "coup.html",
-        "vibe_check" => "vibe-check.html",
-        "red_button" => "red-button.html",
-        other => {
-            tracing::warn!(environment_type = %other, "Unknown environment type, defaulting to red-button viewer");
-            "red-button.html"
-        }
+        "coup" => Some("coup.html"),
+        "vibe_check" => Some("vibe-check.html"),
+        "red_button" => Some("red-button.html"),
+        _ => None,
     };
-    let spectator_url = format!(
-        "{}/viewer/{}?matchId={}",
-        state.public_base_url.trim_end_matches('/'),
-        viewer_page,
-        match_id
-    );
+    let spectator_url = viewer_page.map(|page| {
+        format!(
+            "{}/viewer/{}?matchId={}",
+            state.public_base_url.trim_end_matches('/'),
+            page,
+            match_id
+        )
+    });
 
     info!(match_id = %match_id, env_type = %env_type, "Match created");
 
     Ok(Json(CreateMatchResponse {
         match_id,
-        spectator_url: Some(spectator_url),
+        spectator_url,
         environment_type: env_type,
     }))
 }
