@@ -4,12 +4,10 @@
 //! uniform [`Environment`] interface.
 
 use poker_protocol::engine::PokerMatch;
-use poker_protocol::{MatchPhase, PlayerId, PokerAction};
+use poker_protocol::{MatchPhase, PlayerId, PokerAction, POKER_RULES};
 use serde_json;
 
 use crate::{Environment, EnvironmentError, PlayerRanking, Result, TurnInfo};
-
-const POKER_RULES: &str = include_str!("../resources/poker_rules.md");
 
 /// Environment adapter for Heads-Up No-Limit Texas Hold'em.
 pub struct PokerEnvironment {

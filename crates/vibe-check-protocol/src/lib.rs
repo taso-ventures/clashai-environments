@@ -9,6 +9,10 @@ use eval_runtime::{
     SequentialPhase, SequentialState,
 };
 
+/// Human-readable Vibe Check rules in markdown. Embedded at compile time so
+/// consumers can surface the rules without filesystem access.
+pub const VIBE_CHECK_RULES: &str = include_str!("../resources/vibe_check_rules.md");
+
 // ─── Core Identifiers ───
 
 pub type PlayerId = i32;

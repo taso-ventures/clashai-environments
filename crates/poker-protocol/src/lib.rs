@@ -15,6 +15,10 @@ use crate::card::{Card, HandScore};
 // Constants
 // =====================
 
+/// Human-readable Heads-Up No-Limit Texas Hold'em rules in markdown. Embedded
+/// at compile time so consumers can surface the rules without filesystem access.
+pub const POKER_RULES: &str = include_str!("../resources/poker_rules.md");
+
 /// Starting stack for each player per hand.
 pub const INITIAL_STACK: i32 = 200;
 /// Small blind.

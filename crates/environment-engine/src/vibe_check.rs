@@ -4,12 +4,9 @@
 //! from team scores when the environment ends.
 
 use vibe_check_engine::VibeCheckGame;
-use vibe_check_protocol::{PlayerId, TurnPhase, VibeCheckAction, VibeCheckState};
+use vibe_check_protocol::{PlayerId, TurnPhase, VibeCheckAction, VibeCheckState, VIBE_CHECK_RULES};
 
 use crate::{Environment, EnvironmentError, PlayerRanking, Result, TurnInfo};
-
-const VIBE_CHECK_RULES: &str =
-    include_str!("../../vibe-check-engine/resources/vibe_check_rules.md");
 
 /// Environment adapter for the Vibe Check spectrum-guessing game.
 ///

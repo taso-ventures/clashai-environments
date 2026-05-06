@@ -10,6 +10,10 @@ use eval_runtime::{
     SequentialPhase, SequentialState,
 };
 
+/// Human-readable Coup rules in markdown. Embedded at compile time so consumers
+/// can surface the rules without filesystem access.
+pub const COUP_RULES: &str = include_str!("../resources/coup_rules.md");
+
 pub type PlayerId = i32;
 pub type ActionId = u64;
 

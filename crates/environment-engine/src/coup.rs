@@ -4,13 +4,11 @@
 //! final rankings when the environment ends.
 
 use coup_engine::{CoupGame, CoupGameConfig};
-use coup_protocol::{CoupAction, CoupState, PlayerId, TurnPhase};
+use coup_protocol::{CoupAction, CoupState, PlayerId, TurnPhase, COUP_RULES};
 use serde_json;
 use tracing::debug;
 
 use crate::{Environment, EnvironmentError, PlayerRanking, Result, TurnInfo};
-
-const COUP_RULES: &str = include_str!("../resources/coup_rules.md");
 
 /// Environment adapter for the Coup card game.
 ///
