@@ -19,6 +19,14 @@ use serde_json::{json, Value};
 
 const DEFAULT_SERVER: &str = "http://localhost:8080";
 const POLL_INTERVAL: Duration = Duration::from_millis(200);
+/// Stub value for empty string fields in placeholder actions (e.g. red_button
+/// `Speak.message`, wordle `Guess.word`). Picked because it's a non-empty
+/// short string AND a valid 5-letter wordle dictionary entry.
+const PLACEHOLDER_STRING: &str = "hello";
+/// Bail out after this many consecutive rejected actions to surface
+/// pathological loops (e.g. legal_actions returning an action the engine then
+/// rejects) instead of busy-looping forever.
+const MAX_CONSECUTIVE_REJECTIONS: u32 = 5;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -56,6 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Drive the match to terminal.
+    let mut consecutive_rejections: u32 = 0;
     loop {
         let status: Value = client
             .get(format!("{server}/matches/{match_id}/status"))
@@ -82,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 continue;
             }
 
-            let action = choose_action(&legal);
+            let action = fill_placeholders(choose_action(&legal));
             let resp: Value = client
                 .post(format!("{server}/matches/{match_id}/actions"))
                 .json(&json!({ "player_id": player_id, "action": action }))
@@ -91,6 +100,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("p{player_id} -> {action}  => {resp}");
             made_move = true;
+
+            if resp["accepted"].as_bool() == Some(false) {
+                consecutive_rejections += 1;
+                if consecutive_rejections >= MAX_CONSECUTIVE_REJECTIONS {
+                    return Err(format!(
+                        "{MAX_CONSECUTIVE_REJECTIONS} consecutive actions rejected; \
+                         giving up to avoid busy-looping. Last response: {resp}"
+                    )
+                    .into());
+                }
+            } else {
+                consecutive_rejections = 0;
+            }
             break;
         }
 
@@ -98,6 +120,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::thread::sleep(POLL_INTERVAL);
         }
     }
+}
+
+/// Replace any empty-string field in the action's top-level JSON object with
+/// a stub value. Several environments return placeholder actions from
+/// `legal_actions` whose free-form fields (`message`, `word`, etc.) are
+/// expected to be filled in by the agent — without this, a random-policy
+/// client submits empty strings and the engine rejects every action.
+fn fill_placeholders(mut action: Value) -> Value {
+    if let Some(obj) = action.as_object_mut() {
+        for (_, v) in obj.iter_mut() {
+            if v.as_str() == Some("") {
+                *v = Value::String(PLACEHOLDER_STRING.to_string());
+            }
+        }
+    }
+    action
 }
 
 /// Replace this with your own policy. Random over the legal set is enough
