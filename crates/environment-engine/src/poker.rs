@@ -92,7 +92,10 @@ impl Environment for PokerEnvironment {
             return Ok(serde_json::Value::Array(vec![]));
         }
         let pid = Self::parse_player_id(player_id)?;
-        let actions = self.game.legal_actions(pid);
+        // PROTOCOL.md mandates a bare JSON array of action objects. The poker
+        // engine's native LegalActions struct is a flag bag; convert it to the
+        // canonical action list before serializing.
+        let actions = self.game.legal_actions(pid).to_action_list();
         serde_json::to_value(&actions)
             .map_err(|e| EnvironmentError::SerializationError(e.to_string()))
     }
