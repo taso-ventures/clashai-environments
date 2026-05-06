@@ -49,8 +49,9 @@ export class CoupStateManager {
       throw new Error(`Failed to load state: ${response.status}`);
     }
 
-    const state = await response.json();
-    this.applyFullState(state);
+    // Server wraps state in { "state": <env JSON> } per PROTOCOL.md.
+    const body = await response.json();
+    this.applyFullState(body.state);
 
     // Load player names (best-effort, non-blocking)
     await this.loadPlayerNames();

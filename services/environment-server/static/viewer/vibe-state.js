@@ -66,8 +66,9 @@ export class VibeCheckStateManager {
     try {
       const response = await fetch(`/matches/${this.matchId}/state`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const state = await response.json();
-      this.applyFullState(state);
+      // Server wraps state in { "state": <env JSON> } per PROTOCOL.md.
+      const body = await response.json();
+      this.applyFullState(body.state);
 
       // Load player names (best-effort, non-blocking)
       await this.loadPlayerNames();
