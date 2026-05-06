@@ -9,6 +9,7 @@
 //!
 //! Flags / env vars:
 //!   `--game <env_type>`     environment to play (default: `tic_tac_toe`)
+//!   `--players <N>`         number of players (default: 2; use 4 for vibe_check, 3+ for wordle)
 //!   `SERVER_URL=<url>`      override the default server (default: `http://localhost:8080`)
 
 use std::env;
@@ -27,6 +28,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|i| args.get(i + 1))
         .cloned()
         .unwrap_or_else(|| "tic_tac_toe".to_string());
+    let players: usize = args
+        .iter()
+        .position(|a| a == "--players")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(2);
     let server = env::var("SERVER_URL").unwrap_or_else(|_| DEFAULT_SERVER.to_string());
 
     let client = reqwest::blocking::Client::new();
@@ -36,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .post(format!("{server}/matches"))
         .json(&json!({
             "environment_type": game,
-            "player_count": 2,
+            "player_count": players,
             "seed": 1
         }))
         .send()?
@@ -61,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Try each player in turn. Whoever has legal actions right now plays.
         let mut made_move = false;
-        for player_id in 0..2 {
+        for player_id in 0..players {
             let actions: Value = client
                 .get(format!(
                     "{server}/matches/{match_id}/legal_actions?player_id={player_id}"
