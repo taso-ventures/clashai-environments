@@ -38,8 +38,11 @@ pub struct ConnectFourGame {
 impl ConnectFourGame {
     /// Create a new Connect Four game.
     ///
-    /// Requires exactly 2 player IDs. Player 0 in the list plays Blue (goes first),
-    /// player 1 plays Orange.
+    /// Requires exactly 2 player IDs. Player 0 in the list goes first and is
+    /// assigned the Blue disc; player 1 is assigned Orange. `Blue`/`Orange`
+    /// here are internal wire-format disc identifiers, not user-facing colors —
+    /// presentation-layer color mapping (e.g. per-agent brand colors) is the
+    /// consumer's responsibility.
     pub fn new(
         player_ids: Vec<PlayerId>,
         player_names: HashMap<PlayerId, String>,
