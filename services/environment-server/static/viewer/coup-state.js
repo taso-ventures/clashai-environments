@@ -56,7 +56,7 @@ export class CoupStateManager {
     // Load player names (best-effort, non-blocking)
     await this.loadPlayerNames();
 
-    return state;
+    return body.state;
   }
 
   async loadPlayerNames() {
