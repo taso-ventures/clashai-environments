@@ -2,7 +2,7 @@
 
 A 2–6 player bluffing and deduction card game by Rikki Tahta. Each player starts with two influence cards representing roles with different actions. Players bluff, challenge, and block until one remains.
 
-Canonical rules: <https://en.wikipedia.org/wiki/The_Resistance:_Coup>. The engine in this repo is a clean-room implementation — no game art, no copyrighted card text.
+Canonical rules: <https://en.wikipedia.org/wiki/Coup_(card_game)>. The engine in this repo is a clean-room implementation — no game art, no copyrighted card text.
 
 ## Roles
 
