@@ -10,6 +10,7 @@
 //! Flags / env vars:
 //!   `--game <env_type>`     environment to play (default: `tic_tac_toe`)
 //!   `--players <N>`         number of players (default: 2; use 4 for vibe_check, 3+ for wordle)
+//!   `--delay-ms <N>`        sleep between actions (default: 0). Use ~500 to watch a viewer in the browser.
 //!   `SERVER_URL=<url>`      override the default server (default: `http://localhost:8080`)
 
 use std::env;
@@ -42,6 +43,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|i| args.get(i + 1))
         .and_then(|s| s.parse().ok())
         .unwrap_or(2);
+    let delay = args
+        .iter()
+        .position(|a| a == "--delay-ms")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|s| s.parse().ok())
+        .map(Duration::from_millis)
+        .unwrap_or(Duration::ZERO);
     let server = env::var("SERVER_URL").unwrap_or_else(|_| DEFAULT_SERVER.to_string());
 
     let client = reqwest::blocking::Client::new();
@@ -100,6 +108,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("p{player_id} -> {action}  => {resp}");
             made_move = true;
+
+            if !delay.is_zero() {
+                std::thread::sleep(delay);
+            }
 
             if resp["accepted"].as_bool() == Some(false) {
                 consecutive_rejections += 1;
