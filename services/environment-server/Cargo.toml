@@ -3,7 +3,6 @@ name = "environment-server"
 version = "0.1.0"
 edition = "2021"
 description = "Unified HTTP/WebSocket server hosting game environments over a standard agent protocol"
-authors = []
 license = "MIT"
 repository = "https://github.com/taso-ventures/clashai-environments"
 publish = false

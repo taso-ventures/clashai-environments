@@ -3,7 +3,6 @@ name = "environment-engine"
 version = "0.1.0"
 edition = "2021"
 description = "Environment-agnostic game engine trait and implementations"
-authors = []
 license = "MIT"
 repository = "https://github.com/taso-ventures/clashai-environments"
 publish = false

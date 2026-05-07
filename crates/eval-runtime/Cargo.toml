@@ -3,7 +3,6 @@ name = "eval-runtime"
 version = "0.1.0"
 edition = "2021"
 description = "Environment trait contracts and turn metadata for game environments"
-authors = []
 license = "MIT"
 repository = "https://github.com/taso-ventures/clashai-environments"
 publish = false

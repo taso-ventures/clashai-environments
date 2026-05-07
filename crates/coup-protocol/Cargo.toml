@@ -3,7 +3,6 @@ name = "coup-protocol"
 version = "0.1.0"
 edition = "2021"
 description = "Protocol types for the Coup game environment"
-authors = []
 license = "MIT"
 repository = "https://github.com/taso-ventures/clashai-environments"
 publish = false
