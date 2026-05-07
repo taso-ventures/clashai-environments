@@ -240,16 +240,31 @@ pub async fn submit_action(
             let is_terminal = env.is_terminal();
             drop(env);
 
+            // Populate actor so spectators can attribute the action.
+            let actor = Some(unified_event_protocol::EventActor {
+                player_id: request.player_id.clone(),
+                role: None,
+                agent_id: None,
+                agent_name: inst.player_names.get(&request.player_id).cloned(),
+                model_provider: None,
+            });
+
             // Wrap in a UnifiedEvent and broadcast.
             let unified = if is_terminal && !was_terminal {
-                UnifiedEvent::terminal(&inst.environment_type, &match_id, seq, events_json.clone())
+                UnifiedEvent::terminal(
+                    &inst.environment_type,
+                    &match_id,
+                    seq,
+                    actor,
+                    events_json.clone(),
+                )
             } else {
                 UnifiedEvent::action(
                     &inst.environment_type,
                     &match_id,
                     None,
                     seq,
-                    None,
+                    actor,
                     events_json.clone(),
                     None,
                     is_terminal,

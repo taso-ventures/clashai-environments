@@ -182,6 +182,7 @@ impl UnifiedEvent {
         environment_type: impl Into<String>,
         match_id: impl Into<String>,
         sequence: u64,
+        actor: Option<EventActor>,
         action: serde_json::Value,
     ) -> Self {
         Self {
@@ -191,7 +192,7 @@ impl UnifiedEvent {
             match_id: match_id.into(),
             turn: None,
             sequence,
-            actor: None,
+            actor,
             action: Some(action),
             reasoning: None,
             is_terminal: true,
