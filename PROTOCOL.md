@@ -44,6 +44,8 @@ Response `200`:
 }
 ```
 
+`spectator_url` is `null` for environments that ship without an HTML viewer (currently `poker`, `tic_tac_toe`, `connect_four`, `wordle`). Clients must handle the null case. Adding a viewer is a static-file drop into `services/environment-server/static/viewer/<game>.html` plus a route mapping in the create-match handler.
+
 ### `GET /matches/:id/state?player_id=X`
 
 Player-filtered state. Omit `player_id` to receive full state (spectator view — leaks hidden info for games with fog-of-war, so only use server-side or for observer clients).
@@ -52,7 +54,7 @@ Response: `{ "state": <environment-specific JSON> }`. See `docs/<game>.md` for p
 
 ### `GET /matches/:id/legal_actions?player_id=X`
 
-Legal actions available to the given player at the current state. When it's not the given player's turn, the server returns an empty array.
+Legal actions available to the given player at the current state. The `player_id` query parameter is **required** — omitting it returns `400`. When it's not the given player's turn, the server returns an empty array.
 
 Response: bare JSON array of environment-specific action objects — `[<action>, <action>, ...]`.
 
@@ -63,14 +65,14 @@ Submit an action.
 Request:
 ```json
 {
-  "player_id": 0,
+  "player_id": "0",
   "action": { "action_type": "income" }
 }
 ```
 
 The `action` shape is environment-specific. Per-game docs have the full action grammar. The request key is singular (`"action"`, not `"actions"`). Games with multiple action kinds tag them with `"action_type": "<snake_case>"` as the discriminant; single-action games (Tic-Tac-Toe, Connect Four) omit the tag.
 
-Response `200`: `{ "accepted": true, "events": {...}, "is_terminal": false }` on success. Response `400`: `{ "accepted": false, "error": "<reason>" }` for illegal or wrong-actor moves.
+Response `200`: `{ "accepted": true, "events": [<event>, ...], "is_terminal": false }` on success. `events` is always a JSON array (possibly empty); single-action games and games whose spectator stream is the source of truth typically return `[]`. Response `400`: `{ "accepted": false, "error": "<reason>" }` for illegal or wrong-actor moves.
 
 ### `POST /matches/:id/reasoning`
 
@@ -108,6 +110,8 @@ WebSocket. On connect the server sends the full event log wrapped between bracke
 ...
 {"catchup_end": true}
 ```
+
+The `catchup_start` and `catchup_end` markers are bare control frames, **not** `UnifiedEvent` envelopes — they have no `event_id`, `sequence`, `timestamp_ms`, etc. Clients should check for the marker keys (`catchup_start` / `catchup_end`) before attempting to deserialize a frame as a `UnifiedEvent`. The markers let clients know to render replay events without animation and switch to live-mode rendering after `catchup_end`.
 
 The catchup log is capped at the most recent **5 000 events** per match (`EVENT_LOG_CAP` in `services/environment-server/src/lib.rs`). Once a match exceeds that, the oldest events are evicted FIFO and only the tail is replayed to late-joining spectators. The live broadcast stream is unaffected — every event is delivered to subscribers in real time regardless of cap.
 
