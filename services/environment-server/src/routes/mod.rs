@@ -185,6 +185,9 @@ pub async fn get_state(
     match query.player_id.as_deref() {
         Some(player_id) => match env.state_for_player(player_id) {
             Ok(state_json) => Json(serde_json::json!({ "state": state_json })).into_response(),
+            Err(EnvironmentError::UnknownPlayer(_)) => {
+                bad_request(format!("unknown player_id '{player_id}'"))
+            }
             Err(e) => internal(e),
         },
         None => match env.full_state() {
@@ -213,6 +216,9 @@ pub async fn get_legal_actions(
     let env = inst.environment.read().await;
     match env.legal_actions(player_id) {
         Ok(actions_json) => Json(actions_json).into_response(),
+        Err(EnvironmentError::UnknownPlayer(_)) => {
+            bad_request(format!("unknown player_id '{player_id}'"))
+        }
         Err(e) => internal(e),
     }
 }
