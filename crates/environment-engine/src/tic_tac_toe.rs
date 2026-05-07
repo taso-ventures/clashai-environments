@@ -125,7 +125,7 @@ impl Environment for TicTacToeEnvironment {
             .apply_action(pid, &ttt_action)
             .map_err(|e| EnvironmentError::InvalidAction(e.to_string()))?;
 
-        Ok(serde_json::Value::Object(Default::default()))
+        Ok(serde_json::Value::Array(vec![]))
     }
 
     fn is_terminal(&self) -> bool {
