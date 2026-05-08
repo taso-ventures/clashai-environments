@@ -85,11 +85,12 @@ export class TicTacToeRenderer {
       0.1,
       100,
     );
-    // 3/4 framing — the React AutoCamera sets a top-down (3, 9.1, 3) but
-    // OrbitControls effectively overrides it with a side view via its
-    // initial sphere state (target [0, 0.8, 0], default camera distance).
-    // Matching the rendered output instead of the spec'd init.
-    this.camera.position.set(0, 6, 12);
+    // Top-down board-centric framing. Mirrors the React AutoCamera at
+    // (3, 9.1, 3) lookAt (0, 1, 0) and the OrbitControls target (0, 0.8, 0)
+    // with autoRotate — the rendered view shows the full 3x3 board in the
+    // center of frame with characters partly cropped at the top and bottom
+    // edges, slowly orbiting the scene's vertical axis.
+    this.camera.position.set(3, 9.1, 3);
     this.camera.lookAt(0, 0.8, 0);
 
     this.renderer = new THREE.WebGLRenderer({
