@@ -148,6 +148,7 @@ pub async fn create_match(
         "coup" => Some("coup.html"),
         "vibe_check" => Some("vibe-check.html"),
         "red_button" => Some("red-button.html"),
+        "tic_tac_toe" => Some("tic-tac-toe.html"),
         _ => None,
     };
     let spectator_url = viewer_page.map(|page| {
