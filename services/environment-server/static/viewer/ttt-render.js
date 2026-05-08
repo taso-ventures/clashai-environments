@@ -27,6 +27,9 @@ const PIECE_BAR_LENGTH = 0.65;
 const PIECE_BAR_THICK = 0.08;
 const PIECE_BAR_HEIGHT = 0.08;
 const CELL_SPACING = 1.1;
+// Mirrors React-side CHARACTER_SCALE = 2.5 and SEAT_TOP_Y = 0.73 (chair default scale 1.0).
+const CHARACTER_SCALE = 2.5;
+const SEAT_TOP_Y = 0.73;
 
 const CHARACTER_MODELS = [
   'assets/characters/character_01.glb',
@@ -70,18 +73,19 @@ export class TicTacToeRenderer {
     this.canvas = canvas;
     this.clock = new THREE.Clock();
 
-    // Three.js core
+    // Three.js core — match the React Canvas: BG_COLOR, fogExp2 0.012,
+    // ACESFilmic tone mapping with exposure 1.2, fov 50.
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0a1520);
-    this.scene.fog = new THREE.FogExp2(0x0a1520, 0.008);
+    this.scene.fog = new THREE.FogExp2(0x0a1520, 0.012);
 
     this.camera = new THREE.PerspectiveCamera(
-      55,
+      50,
       window.innerWidth / window.innerHeight,
       0.1,
-      200,
+      100,
     );
-    // Initial framing chosen to match the R3F AutoCamera (top-down-ish).
+    // Initial framing matches the R3F AutoCamera.
     this.camera.position.set(3, 9.1, 3);
     this.camera.lookAt(0, 1, 0);
 
@@ -93,6 +97,8 @@ export class TicTacToeRenderer {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.2;
 
     // Arena (shared primitive — curved walls + radial floor grid)
     const arena = buildArena(this.scene);
@@ -295,19 +301,21 @@ export class TicTacToeRenderer {
           loader.load(
             cfg.path,
             (gltf) => {
-              // Chair seat
-              const seat = buildChair(cfg.color, { scale: 1.3 });
+              // Chair seat — default scale 1.0 (matches the React inline
+              // SciFiChair, which has no explicit scale wrapper).
+              const seat = buildChair(cfg.color);
               seat.position.copy(cfg.position);
               seat.rotation.y = cfg.facingY;
               const accent = new THREE.PointLight(cfg.color, 1.0, 8);
-              accent.position.y = 3.0;
+              accent.position.y = 2.0;
               seat.add(accent);
               this.scene.add(seat);
 
-              // Character — clone for skeleton rebinding, then sit on chair
+              // Character — clone for skeleton rebinding, then sit on chair.
+              // Scale + seat height mirror React CHARACTER_SCALE and SEAT_TOP_Y.
               const model = SkeletonUtils.clone(gltf.scene);
-              model.scale.set(4.0, 4.0, 4.0);
-              model.position.y = 0.95;
+              model.scale.setScalar(CHARACTER_SCALE);
+              model.position.y = SEAT_TOP_Y;
               model.rotation.y = Math.PI;
 
               const holoMat = createHolographicMaterial(cfg.color, {
