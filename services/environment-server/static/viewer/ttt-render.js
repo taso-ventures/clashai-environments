@@ -557,8 +557,12 @@ export class TicTacToeRenderer {
   // ─── Per-frame update ───
 
   update() {
-    const t = this.clock.getElapsedTime();
+    // getDelta() must come BEFORE getElapsedTime(): the latter internally
+    // calls getDelta() and resets oldTime, so reading it first leaves the
+    // explicit getDelta() returning ~0 (only the microseconds between the
+    // two calls). Same gotcha pattern used by coup-render.js.
     const dt = this.clock.getDelta();
+    const t = this.clock.getElapsedTime();
 
     // Arena shader uniforms (scrolling grid, etc.)
     if (this.arenaMaterials) {
