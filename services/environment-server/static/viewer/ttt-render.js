@@ -103,13 +103,25 @@ export class TicTacToeRenderer {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
 
-    // Arena (shared primitive — curved walls + radial floor grid)
-    const arena = buildArena(this.scene);
+    // Arena (shared primitive — curved walls + radial floor grid).
+    // Sizes mirror the React-inline Arena() in TicTacToeGameBoard.tsx
+    // (CylinderGeometry(12, 14, 10) + CircleGeometry(14)) — smaller than
+    // the shared default (20-unit-radius) which would dwarf the board.
+    const arena = buildArena(this.scene, {
+      wallRadiusTop: 12,
+      wallRadiusBottom: 14,
+      wallHeight: 10,
+      wallY: 3,
+      floorRadius: 14,
+    });
     this.arenaMaterials = arena.materials;
 
-    // Post-processing (Bloom + Vignette via shared helper)
+    // Post-processing — same parameters every other OSS viewer uses. The
+    // React Bloom intensity={1.5} is @react-three/postprocessing semantics,
+    // which is a different bloom implementation than UnrealBloomPass; using
+    // strength=1.5 here would over-bloom by ~3x and blow out the characters.
     const pp = createPostProcessing(this.renderer, this.scene, this.camera, {
-      bloom: { strength: 1.5, threshold: 0.3, smoothing: 0.4 },
+      bloom: { strength: 0.5, radius: 0.5, threshold: 0.35 },
     });
     this.composer = pp.composer;
     this.bloomPass = pp.bloomPass;
@@ -163,12 +175,14 @@ export class TicTacToeRenderer {
     fill.position.set(0, -1, 0);
     this.scene.add(fill);
 
-    // Per-player accent lights
-    const xAccent = new THREE.PointLight(this._dim(this.xColor), 12, 8);
+    // Per-player accent lights. React used intensity=12 with HDR
+    // postprocessing.js bloom; under UnrealBloomPass that overdrives the
+    // scene. 1.5 matches the look of the working OSS viewers (rb uses 1.0).
+    const xAccent = new THREE.PointLight(this._dim(this.xColor), 1.5, 8);
     xAccent.position.set(-2, 3, -3);
     this.scene.add(xAccent);
 
-    const oAccent = new THREE.PointLight(this._dim(this.oColor), 12, 8);
+    const oAccent = new THREE.PointLight(this._dim(this.oColor), 1.5, 8);
     oAccent.position.set(2, 3, 3);
     this.scene.add(oAccent);
   }
