@@ -85,9 +85,12 @@ export class TicTacToeRenderer {
       0.1,
       100,
     );
-    // Initial framing matches the R3F AutoCamera.
-    this.camera.position.set(3, 9.1, 3);
-    this.camera.lookAt(0, 1, 0);
+    // 3/4 framing — the React AutoCamera sets a top-down (3, 9.1, 3) but
+    // OrbitControls effectively overrides it with a side view via its
+    // initial sphere state (target [0, 0.8, 0], default camera distance).
+    // Matching the rendered output instead of the spec'd init.
+    this.camera.position.set(0, 6, 12);
+    this.camera.lookAt(0, 0.8, 0);
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -132,12 +135,13 @@ export class TicTacToeRenderer {
     // Win line mesh, replaced when the winning configuration changes
     this.winLineGroup = null;
 
-    // Auto-rotating orbit camera
-    this.cameraTheta = Math.atan2(this.camera.position.z, this.camera.position.x);
+    // Auto-rotating orbit camera (around the target's vertical axis at the
+    // initial polar angle).
     this.cameraTarget = new THREE.Vector3(0, 0.8, 0);
-    this.cameraRadius = Math.sqrt(
-      this.camera.position.x ** 2 + this.camera.position.z ** 2,
-    );
+    const dx = this.camera.position.x - this.cameraTarget.x;
+    const dz = this.camera.position.z - this.cameraTarget.z;
+    this.cameraTheta = Math.atan2(dz, dx);
+    this.cameraRadius = Math.sqrt(dx * dx + dz * dz);
     this.cameraHeight = this.camera.position.y;
 
     // Resize handler
@@ -589,10 +593,12 @@ export class TicTacToeRenderer {
       this.particleSystem.geometry.attributes.position.needsUpdate = true;
     }
 
-    // Auto-rotating orbit camera (matches React OrbitControls autoRotateSpeed=0.35)
-    this.cameraTheta += dt * 0.35 * 0.1;
-    this.camera.position.x = Math.cos(this.cameraTheta) * this.cameraRadius;
-    this.camera.position.z = Math.sin(this.cameraTheta) * this.cameraRadius;
+    // Auto-rotating orbit camera (matches React OrbitControls autoRotateSpeed=0.35).
+    // Three.js OrbitControls treats autoRotateSpeed=2.0 as 30s per rotation
+    // at 60fps; 0.35 is therefore ~2π / (30 * 2 / 0.35) ≈ 0.037 rad/s.
+    this.cameraTheta += dt * 0.037;
+    this.camera.position.x = this.cameraTarget.x + Math.cos(this.cameraTheta) * this.cameraRadius;
+    this.camera.position.z = this.cameraTarget.z + Math.sin(this.cameraTheta) * this.cameraRadius;
     this.camera.position.y = this.cameraHeight;
     this.camera.lookAt(this.cameraTarget);
 
