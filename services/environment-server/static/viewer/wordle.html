@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wordle Spectator</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+  <link rel="stylesheet" href="shared/shared-theme.css?v=2">
+  <link rel="stylesheet" href="wordle-styles.css?v=1">
+</head>
+<body>
+  <div id="wordle-container" role="application" aria-label="Wordle match spectator viewer">
+    <header id="header">
+      <img class="brand-logo" src="assets/ui/wordmark.svg" alt="" draggable="false">
+      <div id="match-info">
+        <span class="game-label">WORDLE</span>
+        <span id="turn-counter">Turn 0</span>
+        <span id="phase-indicator"></span>
+      </div>
+      <div id="conn-badge" class="conn-badge connecting">CONNECTING</div>
+    </header>
+
+    <main id="content">
+      <section id="agent-grids" aria-label="Agent guess grids">
+        <div id="agent-grids-empty" class="empty-state">Waiting for match to start...</div>
+      </section>
+
+      <section id="chat-panel" aria-label="Agent chat">
+        <div class="panel-header">Conversation</div>
+        <div id="chat-feed">
+          <div class="empty-state">Waiting for messages...</div>
+        </div>
+      </section>
+    </main>
+
+    <div id="game-over-overlay" class="hidden">
+      <div id="game-over-content">
+        <h1 id="winner-title">RESULTS</h1>
+        <div id="winner-name"></div>
+        <div id="winner-reason"></div>
+      </div>
+    </div>
+
+    <div id="connection-status" class="hidden">
+      <span class="status-dot"></span>
+      <span class="status-text">Reconnecting...</span>
+    </div>
+  </div>
+  <script type="module" src="wordle-viewer.js?v=1"></script>
+</body>
+</html>

@@ -150,6 +150,7 @@ pub async fn create_match(
         "red_button" => Some("red-button.html"),
         "tic_tac_toe" => Some("tic-tac-toe.html"),
         "connect_four" => Some("connect-four.html"),
+        "wordle" => Some("wordle.html"),
         _ => None,
     };
     let spectator_url = viewer_page.map(|page| {
