@@ -97,30 +97,23 @@ class WordleViewer {
       card.className = 'agent-card';
       card.dataset.playerId = String(p.player_id);
 
-      // Header
+      // Header — agent name in their assigned color + small status line below.
+      // No swatch circle — matches the internal Wordle layout where the
+      // model logo serves as the visual; we don't ship brand assets in OSS,
+      // so the colored name carries the identity.
       const header = document.createElement('div');
       header.className = 'agent-header';
-
-      const swatch = document.createElement('div');
-      swatch.className = 'agent-swatch';
-      swatch.style.background = color;
-      swatch.style.color = color;
-      header.appendChild(swatch);
-
-      const meta = document.createElement('div');
-      meta.className = 'agent-meta';
 
       const nameEl = document.createElement('div');
       nameEl.className = 'agent-name';
       nameEl.style.color = color;
       nameEl.textContent = this.state.displayName(p.player_id);
-      meta.appendChild(nameEl);
+      header.appendChild(nameEl);
 
       const statusEl = document.createElement('div');
       statusEl.className = 'agent-status';
-      meta.appendChild(statusEl);
+      header.appendChild(statusEl);
 
-      header.appendChild(meta);
       card.appendChild(header);
 
       // Tile grid (MAX_GUESSES rows × WORD_LENGTH tiles)
@@ -225,6 +218,9 @@ class WordleViewer {
     const wrap = document.createElement('div');
     wrap.className = 'chat-msg';
 
+    // iMessage-style: author name above bubble in agent color, no inline
+    // phase tag (the React reference shows phase grouping via UI sectioning,
+    // not per-message badges).
     const meta = document.createElement('div');
     meta.className = 'chat-meta';
     const author = document.createElement('span');
@@ -233,18 +229,10 @@ class WordleViewer {
     const color = this.colorByPlayer.get(msg.player_id);
     if (color) author.style.color = color;
     meta.appendChild(author);
-    if (msg.phase) {
-      const phase = document.createElement('span');
-      phase.className = 'phase';
-      phase.textContent = msg.phase;
-      meta.appendChild(phase);
-    }
     wrap.appendChild(meta);
 
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
-    if (msg.phase === 'win') bubble.classList.add('phase-win');
-    else if (msg.phase === 'banter') bubble.classList.add('phase-banter');
     bubble.textContent = msg.text ?? '';
     wrap.appendChild(bubble);
 

@@ -133,15 +133,22 @@ body, html {
 #agent-grids {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   align-content: start;
+}
+
+@media (min-width: 1100px) {
+  /* 3-column layout for 6 agents (3x2) — matches internal Wordle layout. */
+  #agent-grids {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .agent-card {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
-  padding: 14px;
+  padding: 12px;
   overflow: hidden;
   animation: cardFadeIn 0.3s ease;
 }
@@ -152,40 +159,24 @@ body, html {
 }
 
 .agent-card .agent-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.agent-card .agent-swatch {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 0 8px currentColor;
-}
-
-.agent-card .agent-meta {
-  flex: 1;
+  margin-bottom: 10px;
   min-width: 0;
 }
 
 .agent-card .agent-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: -0.2px;
+  margin-bottom: 2px;
 }
 
 .agent-card .agent-status {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary, #9ca3af);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
 }
 
 .agent-card .agent-status.solved { color: var(--tile-correct); }
@@ -204,12 +195,12 @@ body, html {
 }
 
 .tile {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
   text-transform: uppercase;
   border-radius: 3px;
@@ -217,6 +208,10 @@ body, html {
   background: transparent;
   color: #fff;
   transition: background 0.4s ease, border-color 0.4s ease, transform 0.3s ease;
+}
+
+@media (min-width: 480px) {
+  .tile { width: 36px; height: 36px; font-size: 15px; }
 }
 
 .tile.has-letter {
@@ -257,45 +252,51 @@ body, html {
    Chat Panel
    ===================================================== */
 
+/* iMessage-style light chat panel — mirrors the internal Wordle chat UI. */
+
 #chat-panel {
-  border-radius: 12px;
-  border: 1px solid rgba(0, 255, 204, 0.1);
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #f7f7f9;
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 120px);
   position: sticky;
   top: 76px;
+  overflow: hidden;
 }
 
 #chat-panel .panel-header {
-  padding: 10px 16px;
-  font-size: 10px;
+  padding: 12px 16px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: var(--text-muted, #9ca3af);
-  border-bottom: 1px solid rgba(0, 255, 204, 0.1);
+  color: #6b7280;
+  background: #f7f7f9;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
+  text-align: center;
 }
 
 #chat-feed {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: 14px 14px 18px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 255, 204, 0.2) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
 }
+
+#chat-feed::-webkit-scrollbar { width: 6px; }
+#chat-feed::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 3px; }
 
 .chat-msg {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   animation: chatFadeIn 0.25s ease;
 }
 
@@ -305,45 +306,33 @@ body, html {
 }
 
 .chat-meta {
-  font-size: 10px;
-  color: var(--text-muted, #9ca3af);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 12px;
   display: flex;
   gap: 6px;
   align-items: baseline;
+  padding-left: 10px;
 }
 
 .chat-meta .author {
   font-weight: 700;
 }
 
-.chat-meta .phase {
-  font-size: 9px;
-  opacity: 0.7;
-  padding: 1px 6px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-}
-
 .chat-bubble {
-  padding: 8px 12px;
-  border-radius: 12px 12px 12px 2px;
-  font-size: 13px;
-  line-height: 1.5;
-  background: rgba(0, 255, 204, 0.06);
-  border: 1px solid rgba(0, 255, 204, 0.18);
-  color: #e5e7eb;
+  padding: 9px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.45;
+  background: #ffffff;
+  color: #1f2937;
+  align-self: flex-start;
+  max-width: 86%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  word-wrap: break-word;
 }
 
-.chat-bubble.phase-win {
-  border-color: rgba(34, 197, 94, 0.3);
-  background: rgba(34, 197, 94, 0.06);
-}
-
-.chat-bubble.phase-banter {
-  border-color: rgba(245, 158, 11, 0.3);
-  background: rgba(245, 158, 11, 0.05);
+#chat-feed .empty-state {
+  background: transparent;
+  color: #6b7280;
 }
 
 .empty-state {
