@@ -31,19 +31,34 @@
         <div id="conn-badge" class="conn-badge connecting">CONNECTING</div>
       </header>
 
-      <div id="hud">
-        <div id="pot-display"><span class="hud-label">POT</span><span id="pot-value">0</span></div>
-        <div id="stack-display">
-          <div class="stack stack-0">
-            <span class="stack-name" id="stack-name-0">Player 0</span>
-            <span class="stack-value" id="stack-value-0">0</span>
+      <section id="game-table-panel" aria-label="Game table — community and hole cards">
+        <div class="panel-title">Game Table</div>
+
+        <div class="community-row" id="community-row" aria-label="Community cards">
+          <!-- 5 slots, filled by JS as the flop / turn / river deal -->
+        </div>
+
+        <div class="pot-pill"><span class="pot-dot"></span>Pot <span id="pot-value">0</span></div>
+
+        <div class="player-rows">
+          <div class="player-row player-row-0">
+            <div class="player-row-head">
+              <span class="player-name" id="stack-name-0">Player 0</span>
+              <span class="dealer-badge" id="dealer-badge-0">DEALER</span>
+              <span class="stack-chip"><span class="chip-dot"></span><span id="stack-value-0">0</span></span>
+            </div>
+            <div class="hole-cards" id="hole-cards-0"></div>
           </div>
-          <div class="stack stack-1">
-            <span class="stack-name" id="stack-name-1">Player 1</span>
-            <span class="stack-value" id="stack-value-1">0</span>
+          <div class="player-row player-row-1">
+            <div class="player-row-head">
+              <span class="player-name" id="stack-name-1">Player 1</span>
+              <span class="dealer-badge" id="dealer-badge-1">DEALER</span>
+              <span class="stack-chip"><span class="chip-dot"></span><span id="stack-value-1">0</span></span>
+            </div>
+            <div class="hole-cards" id="hole-cards-1"></div>
           </div>
         </div>
-      </div>
+      </section>
 
       <div id="game-over-overlay" class="hidden">
         <div id="game-over-content">

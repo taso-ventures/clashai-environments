@@ -18,6 +18,49 @@ const ROUND_LABELS = {
   preflop: 'PRE-FLOP',
 };
 
+// Poker protocol serializes Rank as "two".."ten", "jack", "queen", "king", "ace"
+// and Suit as "hearts" | "diamonds" | "clubs" | "spades".
+const RANK_GLYPH = {
+  two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7',
+  eight: '8', nine: '9', ten: '10', jack: 'J', queen: 'Q', king: 'K', ace: 'A',
+};
+const SUIT_GLYPH = {
+  hearts: '♥',
+  diamonds: '♦',
+  clubs: '♣',
+  spades: '♠',
+};
+const RED_SUITS = new Set(['hearts', 'diamonds']);
+
+const COMMUNITY_SLOTS = 5;
+const HOLE_CARDS_PER_PLAYER = 2;
+
+function buildCardFace(card, { faceDown = false, empty = false } = {}) {
+  const el = document.createElement('div');
+  el.className = 'card-face';
+  const rankEl = document.createElement('span');
+  rankEl.className = 'rank';
+  const suitEl = document.createElement('span');
+  suitEl.className = 'suit';
+  el.appendChild(rankEl);
+  el.appendChild(suitEl);
+
+  if (empty) {
+    el.classList.add('empty');
+    return el;
+  }
+  if (faceDown || !card) {
+    el.classList.add('face-down');
+    return el;
+  }
+  const suit = String(card.suit ?? '').toLowerCase();
+  const rank = String(card.rank ?? '').toLowerCase();
+  rankEl.textContent = RANK_GLYPH[rank] ?? '?';
+  suitEl.textContent = SUIT_GLYPH[suit] ?? '?';
+  el.classList.add(RED_SUITS.has(suit) ? 'red' : 'black');
+  return el;
+}
+
 class PokerViewer {
   constructor() {
     const url = new URL(window.location.href);
@@ -28,12 +71,27 @@ class PokerViewer {
     this.roundIndicator = document.getElementById('round-indicator');
     this.connBadge = document.getElementById('conn-badge');
     this.potValue = document.getElementById('pot-value');
-    this.stack0 = document.querySelector('.stack.stack-0');
-    this.stack1 = document.querySelector('.stack.stack-1');
-    this.stackName0 = document.getElementById('stack-name-0');
-    this.stackName1 = document.getElementById('stack-name-1');
-    this.stackValue0 = document.getElementById('stack-value-0');
-    this.stackValue1 = document.getElementById('stack-value-1');
+    this.playerRows = [
+      document.querySelector('.player-row-0'),
+      document.querySelector('.player-row-1'),
+    ];
+    this.stackNames = [
+      document.getElementById('stack-name-0'),
+      document.getElementById('stack-name-1'),
+    ];
+    this.stackValues = [
+      document.getElementById('stack-value-0'),
+      document.getElementById('stack-value-1'),
+    ];
+    this.dealerBadges = [
+      document.getElementById('dealer-badge-0'),
+      document.getElementById('dealer-badge-1'),
+    ];
+    this.holeRows = [
+      document.getElementById('hole-cards-0'),
+      document.getElementById('hole-cards-1'),
+    ];
+    this.communityRow = document.getElementById('community-row');
     this.gameOverEl = document.getElementById('game-over-overlay');
     this.winnerTitle = document.getElementById('winner-title');
     this.winnerName = document.getElementById('winner-name');
@@ -68,8 +126,8 @@ class PokerViewer {
     await this.renderer.charactersLoaded;
 
     // Set player labels from name map (or fallback) once characters loaded.
-    if (this.stackName0) this.stackName0.textContent = this.state.displayName(0);
-    if (this.stackName1) this.stackName1.textContent = this.state.displayName(1);
+    if (this.stackNames[0]) this.stackNames[0].textContent = this.state.displayName(0);
+    if (this.stackNames[1]) this.stackNames[1].textContent = this.state.displayName(1);
 
     // Render initial snapshot
     this._renderSnapshot({
@@ -115,21 +173,57 @@ class PokerViewer {
       }
     }
 
-    // HUD — pot + stacks + acting indicator
+    // 2D Game Table panel — pot + per-player rows + readable card faces
     if (this.potValue) {
       this.potValue.textContent = currentHand?.pot ?? 0;
     }
-    if (this.stackValue0) {
-      this.stackValue0.textContent = currentHand?.stacks?.[0] ?? '–';
-    }
-    if (this.stackValue1) {
-      this.stackValue1.textContent = currentHand?.stacks?.[1] ?? '–';
-    }
-    const actionOn = currentHand?.action_on;
-    if (this.stack0) this.stack0.classList.toggle('acting', actionOn === 0 && !currentHand?.finished);
-    if (this.stack1) this.stack1.classList.toggle('acting', actionOn === 1 && !currentHand?.finished);
 
-    // 3D scene
+    const stacks = currentHand?.stacks ?? [null, null];
+    const folded = currentHand?.folded ?? [false, false];
+    const holeCards = currentHand?.hole_cards ?? [[], []];
+    const actionOn = currentHand?.action_on;
+
+    for (let i = 0; i < 2; i += 1) {
+      if (this.stackValues[i]) {
+        this.stackValues[i].textContent = stacks[i] ?? '–';
+      }
+      if (this.dealerBadges[i]) {
+        this.dealerBadges[i].classList.toggle('active', button === i);
+      }
+      if (this.playerRows[i]) {
+        this.playerRows[i].classList.toggle(
+          'acting',
+          actionOn === i && !currentHand?.finished,
+        );
+      }
+      if (this.holeRows[i]) {
+        this.holeRows[i].innerHTML = '';
+        const cards = holeCards[i] ?? [];
+        for (let c = 0; c < HOLE_CARDS_PER_PLAYER; c += 1) {
+          if (cards[c]) {
+            this.holeRows[i].appendChild(
+              buildCardFace(cards[c], { faceDown: folded[i] }),
+            );
+          } else {
+            this.holeRows[i].appendChild(buildCardFace(null, { empty: true }));
+          }
+        }
+      }
+    }
+
+    if (this.communityRow) {
+      this.communityRow.innerHTML = '';
+      const community = currentHand?.community ?? [];
+      for (let i = 0; i < COMMUNITY_SLOTS; i += 1) {
+        if (community[i]) {
+          this.communityRow.appendChild(buildCardFace(community[i]));
+        } else {
+          this.communityRow.appendChild(buildCardFace(null, { empty: true }));
+        }
+      }
+    }
+
+    // 3D scene reconciliation (in lockstep with the 2D panel)
     this.renderer.syncHand({ currentHand, button });
   }
 
