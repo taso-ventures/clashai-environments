@@ -171,10 +171,7 @@ impl AppState {
         }
         let terminal_ids: Vec<String> = map
             .iter()
-            .filter(|(_, inst)| {
-                inst.is_terminal
-                    .load(std::sync::atomic::Ordering::Relaxed)
-            })
+            .filter(|(_, inst)| inst.is_terminal.load(std::sync::atomic::Ordering::Relaxed))
             .map(|(id, _)| id.clone())
             .collect();
         for id in terminal_ids {
