@@ -30,6 +30,8 @@ export class PokerState {
     this.reconnectAttempt = 0;
     this.isCatchingUp = false;
     this._closing = false;
+    this._inFlight = false;
+    this._pending = false;
 
     this.onConnectionChange = null;
     this.onHandSnapshot = null; // (matchState) — fires every refetch
@@ -125,6 +127,19 @@ export class PokerState {
   }
 
   async _refetchAndDispatch() {
+    if (this._inFlight) { this._pending = true; return; }
+    this._inFlight = true;
+    try {
+      do {
+        this._pending = false;
+        await this._doRefetchAndDispatch();
+      } while (this._pending);
+    } finally {
+      this._inFlight = false;
+    }
+  }
+
+  async _doRefetchAndDispatch() {
     let body;
     try {
       const baseUrl = window.location.origin;
