@@ -229,10 +229,8 @@ fn enters_banter_after_max_guesses_then_game_over_when_budget_exhausted() {
     let s = game.full_state();
     assert_eq!(s.phase, WordlePhase::Banter);
     assert_eq!(s.terminal_reason, Some(TerminalReason::MaxGuessesExhausted));
-    // Each player's target is stored on their own progress entry.
-    for p in &s.players {
-        assert_eq!(p.target_word, "civic");
-    }
+    // Target is revealed at Banter so spectators learn the answer.
+    assert_eq!(s.target_word.as_deref(), Some("civic"));
 
     // Exhaust the Banter budget: default is 3 per player * 3 players = 9 total.
     for _ in 0..3 {
@@ -284,56 +282,59 @@ fn full_state_trait_impls_report_winner_and_phase() {
 }
 
 // -----------------------------------------------------------------------
-// Regression: each player has their own hidden target word.
-//
-// Previously `WordleGame` stored a single shared target, so all players
-// saw the same answer — contradicting the spec. The new-with-seed path
-// derives a distinct target per player slot. Per-player targets must be
-// visible to their owner via `state_for_player`, and hidden from
-// opponents via `OpponentSummary`.
+// Target word: shared across players, hidden until match ends.
 // -----------------------------------------------------------------------
 
 #[test]
-fn each_player_has_a_distinct_target_from_seed() {
-    let game = WordleGame::new(vec![0, 1, 2], names(), WordleConfig::default(), 0xC0FFEE)
-        .expect("game should initialize");
-    let state = game.full_state();
-    let targets: std::collections::HashSet<_> = state
-        .players
-        .iter()
-        .map(|p| p.target_word.clone())
-        .collect();
-    // With three slots the splitmix derivation yields three different
-    // answer-list entries for any reasonable seed.
-    assert_eq!(
-        targets.len(),
-        3,
-        "expected 3 distinct per-player targets, got {targets:?}"
-    );
+fn target_word_is_deterministic_from_seed() {
+    // Two games seeded identically must produce the same target word.
+    let pull_target = |seed: u64| -> String {
+        let mut g = WordleGame::new(vec![0, 1, 2], names(), WordleConfig::default(), seed)
+            .expect("game should initialize");
+        // Exhaust to Banter so the target is revealed via full_state.
+        for _ in 0..6 {
+            let _ = g.apply_action(0, &guess("crane"));
+            let _ = g.apply_action(1, &guess("grape"));
+            let _ = g.apply_action(2, &guess("joker"));
+        }
+        g.full_state()
+            .target_word
+            .expect("target revealed at Banter")
+    };
+
+    assert_eq!(pull_target(0xC0FFEE), pull_target(0xC0FFEE));
+    let word = pull_target(0xC0FFEE);
+    assert_eq!(word.len(), 5);
+    assert!(word.chars().all(|c| c.is_ascii_lowercase()));
 }
 
 #[test]
-fn state_for_player_reveals_only_own_target() {
-    let game = WordleGame::new(vec![0, 1, 2], names(), WordleConfig::default(), 12345)
-        .expect("game should initialize");
-    let full = game.full_state();
-    let p0_target = &full.players[0].target_word;
-    let p1_target = &full.players[1].target_word;
+fn target_word_is_hidden_until_match_ends() {
+    let mut game = game_with_target("crane");
 
-    let p0_view = game.state_for_player(0).expect("p0 view");
-    assert_eq!(p0_view.my_progress.target_word, *p0_target);
-    // Opponent summaries intentionally do not carry target words.
-    let opp_field_names = serde_json::to_value(&p0_view.opponents[0])
+    // Lobby: target not yet revealed.
+    assert_eq!(game.full_state().target_word, None);
+    assert_eq!(game.state_for_player(0).unwrap().revealed_target_word, None);
+
+    // Lobby->Guessing transitions on the first guess (lobby-liveness change).
+    game.apply_action(0, &guess("crane")).unwrap();
+
+    // Guessing phase: still hidden.
+    assert_eq!(game.full_state().phase, WordlePhase::Guessing);
+    assert_eq!(game.full_state().target_word, None);
+    assert_eq!(game.state_for_player(0).unwrap().revealed_target_word, None);
+
+    // OpponentSummary doesn't carry a target_word field — schema-level guard.
+    let p0_view = game.state_for_player(0).unwrap();
+    let opp_field_names: Vec<_> = serde_json::to_value(&p0_view.opponents[0])
         .unwrap()
         .as_object()
         .unwrap()
         .keys()
         .cloned()
-        .collect::<Vec<_>>();
+        .collect();
     assert!(
         !opp_field_names.iter().any(|k| k == "target_word"),
-        "OpponentSummary must not leak target_word"
+        "OpponentSummary must not carry target_word"
     );
-    // Sanity: p0's and p1's targets are distinct for this seed.
-    assert_ne!(p0_target, p1_target);
 }

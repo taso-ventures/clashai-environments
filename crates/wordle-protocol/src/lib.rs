@@ -96,9 +96,6 @@ impl EnvironmentAction for WordleAction {
 pub struct PlayerProgress {
     pub player_id: PlayerId,
     pub display_name: String,
-    /// Each player has their own hidden 5-letter target. Visible to the
-    /// owner via their player-filtered state; elided from opponents.
-    pub target_word: String,
     pub guesses: Vec<GuessResult>,
     pub solved: bool,
     pub eliminated: bool,
@@ -129,6 +126,9 @@ pub struct WordlePlayerView {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WordleFullState {
+    /// Revealed once the match enters `Banter` or `GameOver`; `None` while
+    /// players are still guessing so spectators don't see the answer.
+    pub target_word: Option<String>,
     pub turn: u32,
     pub phase: WordlePhase,
     pub players: Vec<PlayerProgress>,

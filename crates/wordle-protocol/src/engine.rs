@@ -35,6 +35,7 @@ pub enum EngineError {
 
 pub struct WordleGame {
     config: WordleConfig,
+    target_word: String,
     players: Vec<PlayerProgress>,
     chat_messages: Vec<ChatMessage>,
     turn: u32,
@@ -57,19 +58,21 @@ impl WordleGame {
         config: WordleConfig,
         seed: u64,
     ) -> Result<Self, EngineError> {
-        let targets: Vec<String> = (0..player_ids.len())
-            .map(|slot| word_list::select_word_at(seed, slot))
-            .collect();
-        Self::new_with_targets(player_ids, player_names, config, targets)
+        Self::new_with_target(
+            player_ids,
+            player_names,
+            config,
+            word_list::select_word(seed),
+        )
     }
 
-    /// Construct with one explicit target word per player (order matches
-    /// `player_ids`). Useful for tests and deterministic replay.
-    pub fn new_with_targets(
+    /// Construct with an explicit target word shared by all players. Useful
+    /// for tests and deterministic replay.
+    pub fn new_with_target(
         player_ids: Vec<PlayerId>,
         player_names: HashMap<PlayerId, String>,
         config: WordleConfig,
-        target_words: Vec<String>,
+        target_word: String,
     ) -> Result<Self, EngineError> {
         if !(3..=6).contains(&player_ids.len()) {
             return Err(EngineError::InvalidSetup(
@@ -81,11 +84,6 @@ impl WordleGame {
                 "max_guesses must be greater than 0".to_string(),
             ));
         }
-        if target_words.len() != player_ids.len() {
-            return Err(EngineError::InvalidSetup(
-                "target_words length must match player_ids length".to_string(),
-            ));
-        }
         let unique_ids: HashSet<PlayerId> = player_ids.iter().copied().collect();
         if unique_ids.len() != player_ids.len() {
             return Err(EngineError::InvalidSetup(
@@ -93,29 +91,23 @@ impl WordleGame {
             ));
         }
 
-        let normalized_targets: Vec<String> = target_words
-            .into_iter()
-            .map(|t| {
-                let n = t.trim().to_lowercase();
-                if n.chars().count() != 5 || !n.chars().all(|c| c.is_ascii_alphabetic()) {
-                    return Err(EngineError::InvalidSetup(
-                        "each target word must be 5 ASCII letters".to_string(),
-                    ));
-                }
-                Ok(n)
-            })
-            .collect::<Result<_, _>>()?;
+        let normalized_target = target_word.trim().to_lowercase();
+        if normalized_target.chars().count() != 5
+            || !normalized_target.chars().all(|c| c.is_ascii_alphabetic())
+        {
+            return Err(EngineError::InvalidSetup(
+                "target word must be 5 ASCII letters".to_string(),
+            ));
+        }
 
         let players = player_ids
             .into_iter()
-            .zip(normalized_targets)
-            .map(|(player_id, target_word)| PlayerProgress {
+            .map(|player_id| PlayerProgress {
                 player_id,
                 display_name: player_names
                     .get(&player_id)
                     .cloned()
                     .unwrap_or_else(|| format!("Player {player_id}")),
-                target_word,
                 guesses: Vec::new(),
                 solved: false,
                 eliminated: false,
@@ -125,6 +117,7 @@ impl WordleGame {
 
         Ok(Self {
             config,
+            target_word: normalized_target,
             players,
             chat_messages: Vec::new(),
             turn: 0,
@@ -138,21 +131,14 @@ impl WordleGame {
         })
     }
 
-    /// Back-compat constructor that seeds every player with the same target
-    /// word. Retained for tests; new code should prefer [`Self::new_with_targets`].
-    #[doc(hidden)]
-    pub fn new_with_target(
-        player_ids: Vec<PlayerId>,
-        player_names: HashMap<PlayerId, String>,
-        config: WordleConfig,
-        target_word: String,
-    ) -> Result<Self, EngineError> {
-        let targets = vec![target_word; player_ids.len()];
-        Self::new_with_targets(player_ids, player_names, config, targets)
-    }
-
     pub fn full_state(&self) -> WordleFullState {
+        let revealed = matches!(self.phase, WordlePhase::Banter | WordlePhase::GameOver);
         WordleFullState {
+            target_word: if revealed {
+                Some(self.target_word.clone())
+            } else {
+                None
+            },
             turn: self.turn,
             phase: self.phase,
             players: self.players.clone(),
@@ -184,15 +170,20 @@ impl WordleGame {
             })
             .collect();
 
-        // Own target is carried in `my_progress.target_word` already.
-        // `revealed_target_word` mirrors the owner's target for legacy clients.
         Ok(WordlePlayerView {
             turn: self.turn,
             phase: self.phase.as_str().to_string(),
-            revealed_target_word: Some(my_progress.target_word.clone()),
             my_progress,
             opponents,
             chat_messages: self.chat_messages.clone(),
+            revealed_target_word: if matches!(
+                self.phase,
+                WordlePhase::Banter | WordlePhase::GameOver
+            ) {
+                Some(self.target_word.clone())
+            } else {
+                None
+            },
             needs_guess_this_turn: self.needs_guess_this_turn(player_id)?,
             is_terminal: self.is_terminal(),
             max_guesses: self.config.max_guesses,
@@ -318,11 +309,10 @@ impl WordleGame {
             WordlePhase::GameOver => return Err(EngineError::InvalidPhase),
         };
 
-        // Redact every player's target from Win/Banter messages so the
-        // chat cannot leak answers to spectators or other agents still
-        // guessing. Lobby messages pre-date the round and are not redacted.
+        // Redact the target word from Win/Banter messages to prevent
+        // leaking the answer to spectators and other agents still guessing.
         let text = match phase {
-            ChatPhase::Win | ChatPhase::Banter => self.redact_all_targets(message),
+            ChatPhase::Win | ChatPhase::Banter => redact_word(message, &self.target_word),
             ChatPhase::Lobby => message.to_string(),
         };
 
@@ -347,14 +337,6 @@ impl WordleGame {
         }
 
         Ok(())
-    }
-
-    fn redact_all_targets(&self, message: &str) -> String {
-        let mut text = message.to_string();
-        for p in &self.players {
-            text = redact_word(&text, &p.target_word);
-        }
-        text
     }
 
     fn apply_guess(&mut self, player_idx: usize, word: &str) -> Result<(), EngineError> {
@@ -388,8 +370,7 @@ impl WordleGame {
             return Err(EngineError::InvalidGuessWord(normalized));
         }
 
-        let target = self.players[player_idx].target_word.clone();
-        let feedback = feedback_for_guess(&target, &normalized);
+        let feedback = feedback_for_guess(&self.target_word, &normalized);
         let is_correct = feedback.iter().all(|f| *f == LetterFeedback::Correct);
         self.players[player_idx].guesses.push(GuessResult {
             word: normalized,
