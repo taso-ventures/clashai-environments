@@ -416,13 +416,19 @@ export class PokerRenderer {
       const card = community[i];
       const sig = `${card.suit}|${card.rank}`;
       const cached = this._communityCache[i];
-      if (cached && cached.sig === sig) continue;
+      // Row is centered around X=0 so every card's X depends on the total
+      // count — update existing cards' positions when the row grows.
+      const xPos = (i - (community.length - 1) / 2) * 0.24;
+      if (cached && cached.sig === sig) {
+        cached.group.position.set(xPos, 0.001, 0);
+        continue;
+      }
       if (cached) {
         this.communityCardsGroup.remove(cached.group);
         this._disposeGroup(cached.group);
       }
       const group = this._buildCard(suitColor(card.suit), false);
-      group.position.set((i - (community.length - 1) / 2) * 0.24, 0.001, 0);
+      group.position.set(xPos, 0.001, 0);
       if (i >= this._communityCount) {
         group.scale.set(0, 0, 0);
         group.userData.popIn = true;
