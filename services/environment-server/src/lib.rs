@@ -55,6 +55,7 @@ pub struct MatchInstance {
     pub sequence: std::sync::atomic::AtomicU64,
     /// Append-only log of all broadcast events for spectator catchup on connect.
     pub event_log: RwLock<Vec<serde_json::Value>>,
+    pub is_terminal: std::sync::atomic::AtomicBool,
 }
 
 #[derive(Clone)]
@@ -168,16 +169,14 @@ impl AppState {
         if map.len() <= 100 {
             return;
         }
-        let terminal_ids: Vec<String> = {
-            let mut ids = Vec::new();
-            for (id, inst) in map.iter() {
-                let env = inst.environment.read().await;
-                if env.is_terminal() {
-                    ids.push(id.clone());
-                }
-            }
-            ids
-        };
+        let terminal_ids: Vec<String> = map
+            .iter()
+            .filter(|(_, inst)| {
+                inst.is_terminal
+                    .load(std::sync::atomic::Ordering::Relaxed)
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
         for id in terminal_ids {
             map.remove(&id);
         }

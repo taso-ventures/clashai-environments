@@ -136,6 +136,7 @@ pub async fn create_match(
         environment_type: env_type.clone(),
         sequence: std::sync::atomic::AtomicU64::new(1),
         event_log,
+        is_terminal: std::sync::atomic::AtomicBool::new(false),
     });
 
     state
@@ -248,6 +249,9 @@ pub async fn submit_action(
         Ok(events_json) => {
             let seq = inst.sequence.fetch_add(1, Ordering::SeqCst);
             let is_terminal = env.is_terminal();
+            if is_terminal && !was_terminal {
+                inst.is_terminal.store(true, Ordering::Relaxed);
+            }
             drop(env);
 
             // Populate actor so spectators can attribute the action.
