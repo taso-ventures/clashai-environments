@@ -9,6 +9,8 @@ use environment_server::{build_router, AppState};
 use reqwest::StatusCode;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
+use tower::Layer;
+use tower_http::normalize_path::NormalizePathLayer;
 
 // -----------------------------------------------------------------------
 // Test harness helpers
@@ -20,16 +22,19 @@ async fn spawn_app() -> (SocketAddr, oneshot::Sender<()>) {
         .expect("failed to bind test listener");
     let addr = listener.local_addr().expect("local addr");
     let state = AppState::new(format!("http://{addr}"), 64);
-    let app = build_router(state);
+    let app = NormalizePathLayer::trim_trailing_slash().layer(build_router(state));
 
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     tokio::spawn(async move {
-        axum::serve(listener, app.into_make_service())
-            .with_graceful_shutdown(async {
-                let _ = shutdown_rx.await;
-            })
-            .await
-            .expect("server error");
+        axum::serve(
+            listener,
+            <_ as axum::ServiceExt<axum::extract::Request>>::into_make_service(app),
+        )
+        .with_graceful_shutdown(async {
+            let _ = shutdown_rx.await;
+        })
+        .await
+        .expect("server error");
     });
     (addr, shutdown_tx)
 }
@@ -651,4 +656,50 @@ async fn test_actions_rejected_after_terminal() {
         StatusCode::BAD_REQUEST,
         "actions after terminal should be rejected"
     );
+}
+
+// Trailing-slash normalization regression coverage.
+#[tokio::test]
+async fn test_trailing_slash_health() {
+    let (addr, shutdown) = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    let resp = client
+        .get(format!("http://{addr}/health/"))
+        .send()
+        .await
+        .expect("GET /health/");
+
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "trailing slash should be normalized: GET /health/ should 200",
+    );
+
+    let _ = shutdown.send(());
+}
+
+#[tokio::test]
+async fn test_trailing_slash_matches_post() {
+    let (addr, shutdown) = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    let resp = client
+        .post(format!("http://{addr}/matches/"))
+        .json(&serde_json::json!({
+            "environment_type": "red_button",
+            "player_count": 2,
+            "extra": {}
+        }))
+        .send()
+        .await
+        .expect("POST /matches/");
+
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "trailing slash should be normalized: POST /matches/ should 200",
+    );
+
+    let _ = shutdown.send(());
 }

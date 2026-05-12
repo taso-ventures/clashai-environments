@@ -33,7 +33,6 @@ use serde::{de, Deserialize, Deserializer, Serialize};
 use tokio::sync::{broadcast, RwLock};
 use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
-use tower_http::normalize_path::NormalizePathLayer;
 use tower_http::services::ServeDir;
 use tracing::info;
 
@@ -333,8 +332,6 @@ pub fn build_router(state: AppState) -> Router {
         // misbehaving client or a DoS attempt.
         .layer(RequestBodyLimitLayer::new(64 * 1024))
         .layer(CorsLayer::permissive())
-        // Trim trailing slashes so /matches/ and /matches both match.
-        .layer(NormalizePathLayer::trim_trailing_slash())
         .with_state(state)
 }
 

@@ -3,6 +3,8 @@
 use std::net::SocketAddr;
 
 use environment_server::{build_router, log_startup, AppState};
+use tower::Layer;
+use tower_http::normalize_path::NormalizePathLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -30,7 +32,7 @@ async fn main() {
         .unwrap_or(256);
 
     let state = AppState::new(public_base_url, ws_capacity);
-    let router = build_router(state);
+    let app = NormalizePathLayer::trim_trailing_slash().layer(build_router(state));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     log_startup(&addr.to_string());
@@ -39,5 +41,10 @@ async fn main() {
         .await
         .expect("failed to bind listener");
 
-    axum::serve(listener, router).await.expect("server error");
+    axum::serve(
+        listener,
+        <_ as axum::ServiceExt<axum::extract::Request>>::into_make_service(app),
+    )
+    .await
+    .expect("server error");
 }

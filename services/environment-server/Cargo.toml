@@ -19,6 +19,7 @@ path = "src/main.rs"
 # Web framework
 axum = { workspace = true, features = ["ws", "json"] }
 tokio = { workspace = true }
+tower = { workspace = true }
 tower-http = { workspace = true, features = ["cors", "fs", "limit", "normalize-path"] }
 
 # Serialization
