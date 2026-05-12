@@ -98,25 +98,43 @@ export class PokerRenderer {
     this.mixers = [];
     this.charactersLoaded = this._loadCharacters();
 
-    // Mutable scene-graph groups updated by syncHand().
     this.communityCardsGroup = new THREE.Group();
     this.communityCardsGroup.position.set(0, TABLE_Y, 0);
     this.scene.add(this.communityCardsGroup);
+    this._communityCache = [];
+    this._communityCount = 0;
 
     this.holeCardsGroup = new THREE.Group();
     this.holeCardsGroup.position.set(0, TABLE_Y, 0);
     this.scene.add(this.holeCardsGroup);
+    this._holeCache = [[], []];
 
     this.chipsGroup = new THREE.Group();
     this.chipsGroup.position.set(0, TABLE_Y, 0);
     this.scene.add(this.chipsGroup);
+    const chip0 = this._buildChip(CHIP_GOLD);
+    chip0.position.set(-0.4, 0.001, -0.6);
+    this.chipsGroup.add(chip0);
+    const chip1 = this._buildChip(CHIP_GOLD);
+    chip1.position.set(0.4, 0.001, 0.6);
+    this.chipsGroup.add(chip1);
 
     this.dealerGroup = new THREE.Group();
     this.dealerGroup.position.set(0, TABLE_Y, 0);
     this.scene.add(this.dealerGroup);
-
-    // Track community-card popping for staggered fade-in
-    this._communityCount = 0;
+    this._dealerMesh = new THREE.Mesh(
+      new THREE.CircleGeometry(0.09, 16),
+      new THREE.MeshBasicMaterial({
+        color: BUTTON_GRAY,
+        toneMapped: false,
+        transparent: true,
+        opacity: 0.7,
+        side: THREE.DoubleSide,
+      }),
+    );
+    this._dealerMesh.rotation.x = -Math.PI / 2;
+    this.dealerGroup.add(this._dealerMesh);
+    this._dealerButton = null;
 
     // Auto-rotating camera (target [0, 0.8, 0], autoRotateSpeed=0.35 matches TTT).
     this.cameraTarget = new THREE.Vector3(0, 0.8, 0);
@@ -372,90 +390,83 @@ export class PokerRenderer {
    * community count grows.
    */
   syncHand({ currentHand, button }) {
-    // ----- Community cards (centered row at table center) -----
-    this._clearGroup(this.communityCardsGroup);
     const community = currentHand?.community ?? [];
-    community.forEach((card, i) => {
-      const xOffset = (i - (community.length - 1) / 2) * 0.24;
-      const cardGroup = this._buildCard(suitColor(card.suit), false);
-      cardGroup.position.set(xOffset, 0.001, 0);
-      // Stagger pop-in for newly-dealt cards
-      if (i >= this._communityCount) {
-        cardGroup.scale.set(0, 0, 0);
-        cardGroup.userData.popIn = true;
-      }
-      this.communityCardsGroup.add(cardGroup);
-    });
-    this._communityCount = community.length;
+    this._reconcileCommunity(community);
 
-    // ----- Hole cards (per-player, near each seat) -----
-    this._clearGroup(this.holeCardsGroup);
     const holeCards = currentHand?.hole_cards ?? [[], []];
     const folded = currentHand?.folded ?? [false, false];
-    // Player 0 is at -Z; player 1 at +Z. Hole cards sit just in front of each.
-    const placements = [
-      { idx: 0, baseZ: -0.55 },
-      { idx: 1, baseZ: 0.55 },
-    ];
-    for (const { idx, baseZ } of placements) {
-      const cards = holeCards[idx] ?? [];
-      const folded_ = folded[idx];
-      cards.forEach((card, i) => {
-        const xOffset = -0.12 + i * 0.22;
-        const cardGroup = this._buildCard(suitColor(card.suit), folded_);
-        cardGroup.position.set(xOffset, 0.001, baseZ);
-        this.holeCardsGroup.add(cardGroup);
-      });
+    this._reconcileHole(0, holeCards[0] ?? [], folded[0], -0.55);
+    this._reconcileHole(1, holeCards[1] ?? [], folded[1], 0.55);
+
+    if (button !== this._dealerButton) {
+      this._dealerButton = button;
+      const x = button === 0 ? -0.62 : 0.62;
+      const z = button === 0 ? -0.6 : 0.6;
+      this._dealerMesh.position.set(x, 0.003, z);
     }
-
-    // ----- Per-player chip + dealer button -----
-    this._clearGroup(this.chipsGroup);
-    this._clearGroup(this.dealerGroup);
-
-    // Player 0 chip (gold) at +Z side, mirrored from React (the React file
-    // uses -z for player1 chip but its player1 is the +z-seated player —
-    // we mirror coords so player_id 0 chip sits in front of player 0).
-    const chip0 = this._buildChip(CHIP_GOLD);
-    chip0.position.set(-0.4, 0.001, -0.6);
-    this.chipsGroup.add(chip0);
-
-    const chip1 = this._buildChip(CHIP_GOLD);
-    chip1.position.set(0.4, 0.001, 0.6);
-    this.chipsGroup.add(chip1);
-
-    // Dealer button — flat disc next to whichever player has it.
-    const dealerSide = button === 0 ? -0.6 : 0.6;
-    const dealerX = button === 0 ? -0.62 : 0.62;
-    const dealer = new THREE.Mesh(
-      new THREE.CircleGeometry(0.09, 16),
-      new THREE.MeshBasicMaterial({
-        color: BUTTON_GRAY,
-        toneMapped: false,
-        transparent: true,
-        opacity: 0.7,
-        side: THREE.DoubleSide,
-      }),
-    );
-    dealer.rotation.x = -Math.PI / 2;
-    dealer.position.set(dealerX, 0.003, dealerSide);
-    this.dealerGroup.add(dealer);
   }
 
-  _clearGroup(group) {
-    while (group.children.length) {
-      const child = group.children[0];
-      group.remove(child);
-      child.traverse((node) => {
-        if (node.geometry) node.geometry.dispose?.();
-        if (node.material) {
-          if (Array.isArray(node.material)) {
-            node.material.forEach((m) => m.dispose?.());
-          } else {
-            node.material.dispose?.();
-          }
-        }
-      });
+  _reconcileCommunity(community) {
+    while (this._communityCache.length > community.length) {
+      const entry = this._communityCache.pop();
+      this.communityCardsGroup.remove(entry.group);
+      this._disposeGroup(entry.group);
     }
+    for (let i = 0; i < community.length; i += 1) {
+      const card = community[i];
+      const sig = `${card.suit}|${card.rank}`;
+      const cached = this._communityCache[i];
+      if (cached && cached.sig === sig) continue;
+      if (cached) {
+        this.communityCardsGroup.remove(cached.group);
+        this._disposeGroup(cached.group);
+      }
+      const group = this._buildCard(suitColor(card.suit), false);
+      group.position.set((i - (community.length - 1) / 2) * 0.24, 0.001, 0);
+      if (i >= this._communityCount) {
+        group.scale.set(0, 0, 0);
+        group.userData.popIn = true;
+      }
+      this.communityCardsGroup.add(group);
+      this._communityCache[i] = { sig, group };
+    }
+    this._communityCount = community.length;
+  }
+
+  _reconcileHole(playerIdx, cards, foldedFlag, baseZ) {
+    const cache = this._holeCache[playerIdx];
+    while (cache.length > cards.length) {
+      const entry = cache.pop();
+      this.holeCardsGroup.remove(entry.group);
+      this._disposeGroup(entry.group);
+    }
+    for (let i = 0; i < cards.length; i += 1) {
+      const card = cards[i];
+      const sig = `${card.suit}|${card.rank}|${foldedFlag ? 'down' : 'up'}`;
+      const cached = cache[i];
+      if (cached && cached.sig === sig) continue;
+      if (cached) {
+        this.holeCardsGroup.remove(cached.group);
+        this._disposeGroup(cached.group);
+      }
+      const group = this._buildCard(suitColor(card.suit), foldedFlag);
+      group.position.set(-0.12 + i * 0.22, 0.001, baseZ);
+      this.holeCardsGroup.add(group);
+      cache[i] = { sig, group };
+    }
+  }
+
+  _disposeGroup(group) {
+    group.traverse((node) => {
+      if (node.geometry) node.geometry.dispose?.();
+      if (node.material) {
+        if (Array.isArray(node.material)) {
+          node.material.forEach((m) => m.dispose?.());
+        } else {
+          node.material.dispose?.();
+        }
+      }
+    });
   }
 
   // ─── Per-frame update ───
