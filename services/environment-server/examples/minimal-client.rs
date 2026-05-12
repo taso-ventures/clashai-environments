@@ -134,11 +134,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-/// Replace any empty-string field in the action's top-level JSON object with
-/// a stub value. Several environments return placeholder actions from
-/// `legal_actions` whose free-form fields (`message`, `word`, etc.) are
-/// expected to be filled in by the agent — without this, a random-policy
-/// client submits empty strings and the engine rejects every action.
+/// Replace empty-string fields with a stub so random-policy submissions
+/// pass engine validation. Walks only the top level; if a future
+/// environment uses nested action shapes, extend this to recurse.
 fn fill_placeholders(mut action: Value) -> Value {
     if let Some(obj) = action.as_object_mut() {
         for (_, v) in obj.iter_mut() {
