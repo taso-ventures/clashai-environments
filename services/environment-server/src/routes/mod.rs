@@ -261,7 +261,7 @@ pub async fn submit_action(
 
             // Wrap in a UnifiedEvent and broadcast.
             let unified = if is_terminal && !was_terminal {
-                UnifiedEvent::terminal(
+                UnifiedEvent::terminal_with_actor(
                     &inst.environment_type,
                     &match_id,
                     seq,
