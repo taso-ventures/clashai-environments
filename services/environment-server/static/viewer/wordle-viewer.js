@@ -18,7 +18,6 @@ class WordleViewer {
     const url = new URL(window.location.href);
     this.matchId = url.searchParams.get('matchId') || url.searchParams.get('match_id');
 
-    this.turnCounter = document.getElementById('turn-counter');
     this.phaseIndicator = document.getElementById('phase-indicator');
     this.connBadge = document.getElementById('conn-badge');
     this.gridsEl = document.getElementById('agent-grids');
@@ -34,6 +33,27 @@ class WordleViewer {
     this.cards = new Map(); // playerId -> { card, rows[][], statusEl }
     this.colorByPlayer = new Map();
     this._chatRendered = 0;
+    // Serial animation queue across players — a guess from player N waits
+    // for player N-1's row cascade to complete before starting.
+    this._animEndTime = 0;
+    // Per-player end time so each player's status line updates when *their*
+    // row finishes, not when the whole queue drains.
+    this._playerAnimEnd = new Map();
+  }
+
+  /** Run `fn` after the global animation queue has drained. */
+  _afterGlobalAnim(fn) {
+    const delay = Math.max(0, this._animEndTime - Date.now());
+    if (delay > 0) setTimeout(fn, delay);
+    else fn();
+  }
+
+  /** Run `fn` after this player's most recent row cascade has finished. */
+  _afterPlayerAnim(playerId, fn) {
+    const end = this._playerAnimEnd.get(playerId) ?? 0;
+    const delay = Math.max(0, end - Date.now());
+    if (delay > 0) setTimeout(fn, delay);
+    else fn();
   }
 
   async init() {
@@ -64,7 +84,7 @@ class WordleViewer {
     this._renderPlayers();
     this._renderInitialGuesses();
     this._renderInitialChat();
-    this._updateHeader();
+    this._renderPhaseIndicator();
 
     if (this.state.isTerminal) {
       this._handleGameOver(
@@ -137,7 +157,7 @@ class WordleViewer {
 
       this.gridsEl.appendChild(card);
       this.cards.set(p.player_id, { card, rows, statusEl });
-      this._updatePlayerStatus(p);
+      this._renderPlayerStatus(p);
     }
   }
 
@@ -151,14 +171,13 @@ class WordleViewer {
     }
   }
 
-  _handleGuessAdded(playerId, guess, totalGuesses) {
+  _handleGuessAdded(playerId, guess, _totalGuesses) {
     const entry = this.cards.get(playerId);
     if (!entry) return;
-    this._paintGuess(entry, guess, { animate: true });
-    this._updateHeader();
+    this._paintGuess(entry, guess, { animate: true, playerId });
   }
 
-  _paintGuess(entry, guess, { animate }) {
+  _paintGuess(entry, guess, { animate, playerId }) {
     const rowIdx = guess.turn != null ? guess.turn - 1 : 0;
     // The turn field counts from 1 in the engine; fall back to scanning for
     // the first un-filled row if it's missing/out of range.
@@ -171,22 +190,69 @@ class WordleViewer {
     if (!row) return;
     const word = (guess.word ?? '').toUpperCase();
     const feedback = guess.feedback ?? [];
+
+    // Each tile spins to 90° edge-on; at the midpoint we reveal the letter
+    // AND the color together — tile is invisible at that instant, so the
+    // letter pops in with the flip rather than appearing pre-flip.
+    const FLIP_MS = 600;
+    const STAGGER_MS = 280;
+    const ROW_DURATION_MS = FLIP_MS + (WORD_LENGTH - 1) * STAGGER_MS;
+    const INTER_PLAYER_GAP_MS = 300;
+
+    // Reset tile contents now (empty until each tile's flip reveals it).
     for (let i = 0; i < WORD_LENGTH; i += 1) {
       const tile = row[i];
       if (!tile) continue;
-      tile.textContent = word[i] ?? '';
       tile.classList.remove('correct', 'present', 'absent', 'has-letter', 'flip-in');
-      tile.classList.add('has-letter');
-      const fb = feedback[i];
-      if (fb) tile.classList.add(fb);
-      if (animate) {
-        // stagger by column so the flip cascades L→R
-        setTimeout(() => tile.classList.add('flip-in'), i * 100);
-      }
+      tile.textContent = '';
     }
+
+    if (!animate) {
+      for (let i = 0; i < WORD_LENGTH; i += 1) {
+        const tile = row[i];
+        if (!tile) continue;
+        tile.textContent = word[i] ?? '';
+        tile.classList.add('has-letter');
+        const fb = feedback[i];
+        if (fb) tile.classList.add(fb);
+      }
+      return;
+    }
+
+    // Serial across players: this row starts after the previously queued
+    // row has fully completed (plus a small gap for legibility).
+    const now = Date.now();
+    const startAt = Math.max(now, this._animEndTime);
+    const baseOffset = startAt - now;
+
+    for (let i = 0; i < WORD_LENGTH; i += 1) {
+      const tile = row[i];
+      if (!tile) continue;
+      const flipStart = baseOffset + i * STAGGER_MS;
+      const revealAt = flipStart + FLIP_MS / 2;
+      const fb = feedback[i];
+      const letter = word[i] ?? '';
+      setTimeout(() => tile.classList.add('flip-in'), flipStart);
+      setTimeout(() => {
+        tile.textContent = letter;
+        tile.classList.add('has-letter');
+        if (fb) tile.classList.add(fb);
+      }, revealAt);
+    }
+
+    const rowEndTime = startAt + ROW_DURATION_MS;
+    if (playerId != null) {
+      this._playerAnimEnd.set(playerId, rowEndTime);
+    }
+    this._animEndTime = rowEndTime + INTER_PLAYER_GAP_MS;
   }
 
+  /** Defers the DOM update until that player's pending row cascade completes. */
   _updatePlayerStatus(player) {
+    this._afterPlayerAnim(player.player_id, () => this._renderPlayerStatus(player));
+  }
+
+  _renderPlayerStatus(player) {
     const entry = this.cards.get(player.player_id);
     if (!entry) return;
     entry.statusEl.classList.remove('solved', 'failed');
@@ -240,14 +306,14 @@ class WordleViewer {
     this.chatFeed.scrollTop = this.chatFeed.scrollHeight;
   }
 
-  // ─── Header / phase indicator ───
+  // ─── Phase indicator ───
 
-  _updateHeader() {
-    if (this.turnCounter) this.turnCounter.textContent = `Turn ${this.state.turn}`;
-    this._updatePhaseIndicator();
+  /** Defers phase-indicator changes until the animation queue drains. */
+  _updatePhaseIndicator() {
+    this._afterGlobalAnim(() => this._renderPhaseIndicator());
   }
 
-  _updatePhaseIndicator() {
+  _renderPhaseIndicator() {
     if (!this.phaseIndicator) return;
     const phase = this.state.phase;
     if (!phase || phase === 'game_over') {
@@ -258,6 +324,17 @@ class WordleViewer {
   }
 
   _handleGameOver(solveOrder, reason, players) {
+    // Defer until any in-flight tile-flip animations have completed so the
+    // overlay doesn't race the cascade.
+    const delay = Math.max(0, this._animEndTime - Date.now());
+    if (delay > 0) {
+      setTimeout(() => this._renderGameOver(solveOrder, reason, players), delay);
+    } else {
+      this._renderGameOver(solveOrder, reason, players);
+    }
+  }
+
+  _renderGameOver(solveOrder, reason, _players) {
     if (!this.gameOverEl) return;
     this.gameOverEl.classList.remove('hidden');
     if (this.winnerTitle) this.winnerTitle.textContent = 'RESULTS';
@@ -273,10 +350,21 @@ class WordleViewer {
       const reasonText = reason ? reason.replace(/_/g, ' ') : '';
       this.winnerReason.textContent = reasonText;
     }
-    this._updatePhaseIndicator();
+    this._renderPhaseIndicator();
   }
 
   _setConnectionStatus(status) {
+    // The 'terminal' transition signals the match is over; defer the badge
+    // swap until the queued tile cascades have drained so it doesn't precede
+    // the final flip.
+    if (status === 'terminal') {
+      this._afterGlobalAnim(() => this._renderConnectionStatus('terminal'));
+    } else {
+      this._renderConnectionStatus(status);
+    }
+  }
+
+  _renderConnectionStatus(status) {
     if (!this.connBadge) return;
     this.connBadge.classList.remove('connecting', 'running', 'terminal');
     switch (status) {
