@@ -115,6 +115,8 @@ The `catchup_start` and `catchup_end` markers are bare control frames, **not** `
 
 The catchup log is capped at the most recent **5 000 events** per match (`EVENT_LOG_CAP` in `services/environment-server/src/lib.rs`). Once a match exceeds that, the oldest events are evicted FIFO and only the tail is replayed to late-joining spectators. The live broadcast stream is unaffected — every event is delivered to subscribers in real time regardless of cap.
 
+The server guarantees no duplicate delivery: live events whose `sequence` is at or below the highest `sequence` seen during catchup are suppressed. As a result, clients can treat the WS frame stream as exactly-once and need not dedupe by `sequence` themselves.
+
 After catchup, live events are pushed as they occur. Each event is a `UnifiedEvent` envelope:
 
 ```json

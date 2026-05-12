@@ -399,11 +399,16 @@ pub async fn spectator_ws(
     let Some(inst) = map.get(&match_id) else {
         return not_found(&match_id);
     };
-    // Subscribe to live events *before* reading the log to avoid gaps.
+    // Subscribe before snapshotting the log so no events are missed; the
+    // high-water-mark below dedupes the overlap.
     let mut rx = inst.broadcaster.subscribe();
-    // Snapshot the event log for catchup replay.
     let past_events = inst.event_log.read().await.clone();
     drop(map);
+
+    let catchup_high_water = past_events
+        .iter()
+        .filter_map(|e| e.get("sequence").and_then(|s| s.as_u64()))
+        .max();
 
     ws.on_upgrade(move |mut socket| async move {
         // Send catchup: all past events bracketed by markers.
@@ -427,10 +432,17 @@ pub async fn spectator_ws(
             }
         }
 
-        // Stream live events.
         loop {
             match rx.recv().await {
                 Ok(event) => {
+                    if let (Some(hw), Some(seq)) = (
+                        catchup_high_water,
+                        event.get("sequence").and_then(|s| s.as_u64()),
+                    ) {
+                        if seq <= hw {
+                            continue;
+                        }
+                    }
                     let text = match serde_json::to_string(&event) {
                         Ok(t) => t,
                         Err(e) => {
