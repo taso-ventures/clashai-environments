@@ -89,6 +89,38 @@ body, html {
   display: none;
 }
 
+#spoiler-toggle {
+  margin-left: auto;
+  margin-right: 8px;
+  background: transparent;
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+#spoiler-toggle:hover {
+  color: var(--glow-primary, #00ffcc);
+  border-color: rgba(0, 255, 204, 0.6);
+}
+
+#spoiler-toggle .icon-eye-off {
+  display: none;
+}
+
+#spoiler-toggle[aria-pressed="true"] .icon-eye {
+  display: none;
+}
+
+#spoiler-toggle[aria-pressed="true"] .icon-eye-off {
+  display: inline-block;
+}
+
 .conn-badge {
   padding: 4px 12px;
   border-radius: 20px;

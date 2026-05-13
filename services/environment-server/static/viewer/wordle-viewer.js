@@ -28,6 +28,7 @@ class WordleViewer {
     this.winnerName = document.getElementById('winner-name');
     this.winnerReason = document.getElementById('winner-reason');
     this.connStatus = document.getElementById('connection-status');
+    this.spoilerToggle = document.getElementById('spoiler-toggle');
 
     this.state = null;
     this.cards = new Map(); // playerId -> { card, rows[][], statusEl }
@@ -39,6 +40,9 @@ class WordleViewer {
     // Per-player end time so each player's status line updates when *their*
     // row finishes, not when the whole queue drains.
     this._playerAnimEnd = new Map();
+    // Spoiler-mode: hide letter content on agent tiles while preserving
+    // color feedback. Preference persists across page reloads.
+    this._spoilerHidden = localStorage.getItem('wordle.spoilerHidden') === '1';
   }
 
   /** Run `fn` after the global animation queue has drained. */
@@ -79,6 +83,12 @@ class WordleViewer {
     this.state.onPhaseChange = () => this._updatePhaseIndicator();
     this.state.onGameOver = (solveOrder, reason, players) =>
       this._handleGameOver(solveOrder, reason, players);
+
+    if (this.spoilerToggle) {
+      this.spoilerToggle.setAttribute('aria-pressed', String(this._spoilerHidden));
+      this._updateSpoilerToggleTitle();
+      this.spoilerToggle.addEventListener('click', () => this._toggleSpoilers());
+    }
 
     // Render initial snapshot
     this._renderPlayers();
@@ -211,7 +221,9 @@ class WordleViewer {
       for (let i = 0; i < WORD_LENGTH; i += 1) {
         const tile = row[i];
         if (!tile) continue;
-        tile.textContent = word[i] ?? '';
+        const letter = word[i] ?? '';
+        tile.dataset.letter = letter;
+        tile.textContent = this._spoilerHidden ? '' : letter;
         tile.classList.add('has-letter');
         const fb = feedback[i];
         if (fb) tile.classList.add(fb);
@@ -234,7 +246,8 @@ class WordleViewer {
       const letter = word[i] ?? '';
       setTimeout(() => tile.classList.add('flip-in'), flipStart);
       setTimeout(() => {
-        tile.textContent = letter;
+        tile.dataset.letter = letter;
+        tile.textContent = this._spoilerHidden ? '' : letter;
         tile.classList.add('has-letter');
         if (fb) tile.classList.add(fb);
       }, revealAt);
@@ -321,6 +334,35 @@ class WordleViewer {
     } else {
       this.phaseIndicator.textContent = phase.toUpperCase();
     }
+  }
+
+  // ─── Spoiler toggle ───
+
+  _toggleSpoilers() {
+    this._spoilerHidden = !this._spoilerHidden;
+    localStorage.setItem('wordle.spoilerHidden', this._spoilerHidden ? '1' : '0');
+    if (this.spoilerToggle) {
+      this.spoilerToggle.setAttribute('aria-pressed', String(this._spoilerHidden));
+      this._updateSpoilerToggleTitle();
+    }
+    // Apply to already-painted tiles. Pending animation timeouts read
+    // this._spoilerHidden when they fire, so newly-revealed tiles will
+    // pick up the new state without extra plumbing.
+    for (const { rows } of this.cards.values()) {
+      for (const row of rows) {
+        for (const tile of row) {
+          const letter = tile.dataset.letter;
+          if (letter) tile.textContent = this._spoilerHidden ? '' : letter;
+        }
+      }
+    }
+  }
+
+  _updateSpoilerToggleTitle() {
+    if (!this.spoilerToggle) return;
+    this.spoilerToggle.title = this._spoilerHidden
+      ? 'Show guessed letters'
+      : 'Hide guessed letters';
   }
 
   _handleGameOver(solveOrder, reason, players) {

@@ -17,6 +17,15 @@
         <span class="game-label">WORDLE</span>
         <span id="phase-indicator"></span>
       </div>
+      <button id="spoiler-toggle" type="button" aria-pressed="false" title="Hide guessed letters">
+        <svg class="icon-eye" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/>
+          <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <svg class="icon-eye-off" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.94 10.94 0 0112 19c-6.5 0-10-7-10-7a19.78 19.78 0 014.06-5.06M9.9 4.24A10.94 10.94 0 0112 5c6.5 0 10 7 10 7a19.78 19.78 0 01-2.16 3.19M1 1l22 22M14.12 14.12a3 3 0 11-4.24-4.24"/>
+        </svg>
+      </button>
       <div id="conn-badge" class="conn-badge connecting">CONNECTING</div>
     </header>
 
