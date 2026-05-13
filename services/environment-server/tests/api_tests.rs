@@ -28,7 +28,9 @@ async fn spawn_app() -> (SocketAddr, oneshot::Sender<()>) {
     tokio::spawn(async move {
         axum::serve(
             listener,
-            <_ as axum::ServiceExt<axum::extract::Request>>::into_make_service(app),
+            <_ as axum::ServiceExt<axum::extract::Request>>::into_make_service_with_connect_info::<
+                SocketAddr,
+            >(app),
         )
         .with_graceful_shutdown(async {
             let _ = shutdown_rx.await;
@@ -699,6 +701,188 @@ async fn test_trailing_slash_matches_post() {
         resp.status(),
         StatusCode::OK,
         "trailing slash should be normalized: POST /matches/ should 200",
+    );
+
+    let _ = shutdown.send(());
+}
+
+// -----------------------------------------------------------------------
+// Play-along endpoint regression tests
+// -----------------------------------------------------------------------
+
+async fn create_wordle_match(base_url: &str) -> String {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "environment_type": "wordle",
+        "player_count": 3,
+        "seed": 42,
+        "extra": {}
+    });
+    let resp = client
+        .post(format!("{base_url}/matches"))
+        .json(&body)
+        .send()
+        .await
+        .expect("POST /matches");
+    assert!(
+        resp.status().is_success(),
+        "create wordle: {:?}",
+        resp.status()
+    );
+    resp.json::<serde_json::Value>()
+        .await
+        .expect("json")
+        .get("match_id")
+        .and_then(|v| v.as_str())
+        .expect("match_id")
+        .to_string()
+}
+
+/// Advance a wordle match into the Guessing phase by submitting one valid
+/// guess from player 0. The minimal-client / random-policy path would do
+/// the same; we bypass that here for determinism.
+async fn advance_wordle_to_guessing(base_url: &str, match_id: &str) {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "player_id": "0",
+        "action": { "action_type": "guess", "word": "slate" },
+    });
+    let resp = client
+        .post(format!("{base_url}/matches/{match_id}/actions"))
+        .json(&body)
+        .send()
+        .await
+        .expect("POST /actions");
+    assert!(
+        resp.status().is_success(),
+        "first guess should succeed and kick off Guessing phase: {:?}",
+        resp.status()
+    );
+}
+
+#[tokio::test]
+async fn test_play_along_returns_feedback_for_valid_guess() {
+    let (addr, shutdown) = spawn_app().await;
+    let base = format!("http://{addr}");
+    let match_id = create_wordle_match(&base).await;
+    advance_wordle_to_guessing(&base, &match_id).await;
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("{base}/matches/{match_id}/play-along/guess"))
+        .json(&serde_json::json!({ "guess": "crane" }))
+        .send()
+        .await
+        .expect("POST play-along");
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: serde_json::Value = resp.json().await.expect("json");
+    let feedback = body
+        .get("feedback")
+        .and_then(|v| v.as_array())
+        .expect("feedback array");
+    assert_eq!(feedback.len(), 5, "wordle feedback is 5 letters");
+    assert!(
+        body.get("solved").and_then(|v| v.as_bool()).is_some(),
+        "solved is bool"
+    );
+
+    let _ = shutdown.send(());
+}
+
+#[tokio::test]
+async fn test_play_along_rejects_invalid_dictionary_word() {
+    let (addr, shutdown) = spawn_app().await;
+    let base = format!("http://{addr}");
+    let match_id = create_wordle_match(&base).await;
+    advance_wordle_to_guessing(&base, &match_id).await;
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("{base}/matches/{match_id}/play-along/guess"))
+        .json(&serde_json::json!({ "guess": "xxxxx" }))
+        .send()
+        .await
+        .expect("POST play-along");
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let _ = shutdown.send(());
+}
+
+#[tokio::test]
+async fn test_play_along_rejects_during_lobby_phase() {
+    let (addr, shutdown) = spawn_app().await;
+    let base = format!("http://{addr}");
+    let match_id = create_wordle_match(&base).await;
+    // Don't advance — stay in Lobby. Spectator should not be able to probe
+    // the target before the engine has committed to Guessing.
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("{base}/matches/{match_id}/play-along/guess"))
+        .json(&serde_json::json!({ "guess": "crane" }))
+        .send()
+        .await
+        .expect("POST play-along");
+    assert_eq!(
+        resp.status(),
+        StatusCode::BAD_REQUEST,
+        "play-along should be rejected during Lobby"
+    );
+
+    let _ = shutdown.send(());
+}
+
+#[tokio::test]
+async fn test_play_along_returns_404_for_non_wordle_env() {
+    let (addr, shutdown) = spawn_app().await;
+    let base = format!("http://{addr}");
+    let match_id = create_red_button_match(&base).await;
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("{base}/matches/{match_id}/play-along/guess"))
+        .json(&serde_json::json!({ "guess": "crane" }))
+        .send()
+        .await
+        .expect("POST play-along");
+    assert_eq!(
+        resp.status(),
+        StatusCode::NOT_FOUND,
+        "play-along not supported for red_button"
+    );
+
+    let _ = shutdown.send(());
+}
+
+#[tokio::test]
+async fn test_play_along_caps_attempts_per_ip() {
+    let (addr, shutdown) = spawn_app().await;
+    let base = format!("http://{addr}");
+    let match_id = create_wordle_match(&base).await;
+    advance_wordle_to_guessing(&base, &match_id).await;
+
+    let client = reqwest::Client::new();
+    // Six successful attempts.
+    for i in 0..6 {
+        let resp = client
+            .post(format!("{base}/matches/{match_id}/play-along/guess"))
+            .json(&serde_json::json!({ "guess": "crane" }))
+            .send()
+            .await
+            .expect("POST play-along");
+        assert_eq!(resp.status(), StatusCode::OK, "attempt {i} should succeed");
+    }
+    // Seventh exceeds the cap.
+    let resp = client
+        .post(format!("{base}/matches/{match_id}/play-along/guess"))
+        .json(&serde_json::json!({ "guess": "crane" }))
+        .send()
+        .await
+        .expect("POST play-along");
+    assert_eq!(
+        resp.status(),
+        StatusCode::TOO_MANY_REQUESTS,
+        "7th attempt should be rate-limited"
     );
 
     let _ = shutdown.send(());

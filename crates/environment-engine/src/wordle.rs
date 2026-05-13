@@ -213,4 +213,19 @@ impl Environment for WordleEnvironment {
         ids.sort_unstable();
         ids.iter().map(|pid| pid.to_string()).collect()
     }
+
+    fn play_along_guess(&self, guess: &str) -> Option<Result<serde_json::Value>> {
+        let result = self
+            .game
+            .evaluate_play_along_guess(guess)
+            .map_err(|e| EnvironmentError::InvalidAction(e.to_string()))
+            .and_then(|(feedback, solved)| {
+                serde_json::to_value(serde_json::json!({
+                    "feedback": feedback,
+                    "solved": solved,
+                }))
+                .map_err(|e| EnvironmentError::SerializationError(e.to_string()))
+            });
+        Some(result)
+    }
 }

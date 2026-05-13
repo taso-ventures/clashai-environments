@@ -2,8 +2,10 @@
 
 use std::sync::{atomic::Ordering, Arc};
 
+use std::net::SocketAddr;
+
 use axum::{
-    extract::{ws::Message, Path, Query, State, WebSocketUpgrade},
+    extract::{ws::Message, ConnectInfo, Path, Query, State, WebSocketUpgrade},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -18,7 +20,8 @@ use unified_event_protocol::UnifiedEvent;
 
 use crate::{
     push_event_capped, AppState, CreateMatchRequest, CreateMatchResponse, ErrorResponse,
-    MatchInstance, MatchStatusResponse, StateQuery, SubmitActionRequest, SubmitReasoningRequest,
+    MatchInstance, MatchStatusResponse, PlayAlongRequest, StateQuery, SubmitActionRequest,
+    SubmitReasoningRequest, PLAY_ALONG_MAX_ATTEMPTS,
 };
 
 // =====================
@@ -137,6 +140,7 @@ pub async fn create_match(
         sequence: std::sync::atomic::AtomicU64::new(1),
         event_log,
         is_terminal: std::sync::atomic::AtomicBool::new(false),
+        play_along_attempts: RwLock::new(std::collections::HashMap::new()),
     });
 
     state
@@ -465,4 +469,64 @@ pub async fn spectator_ws(
             }
         }
     })
+}
+
+// =====================
+// POST /matches/:id/play-along/guess
+// =====================
+
+/// Spectator-side play-along guess validation. Stateless on the server: the
+/// match's engine computes feedback against its hidden target and returns it.
+/// Per-IP attempt cap mirrors the agents' 6-guess limit and prevents a
+/// brute-force probe of the target via the endpoint.
+pub async fn play_along_guess(
+    Path(match_id): Path<String>,
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Json(req): Json<PlayAlongRequest>,
+) -> Response {
+    let map = state.matches.read().await;
+    let Some(inst) = map.get(&match_id) else {
+        return not_found(&match_id);
+    };
+
+    let ip = addr.ip();
+    {
+        let attempts = inst.play_along_attempts.read().await;
+        if attempts.get(&ip).copied().unwrap_or(0) >= PLAY_ALONG_MAX_ATTEMPTS {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(ErrorResponse {
+                    error: format!(
+                        "play-along attempt cap reached ({PLAY_ALONG_MAX_ATTEMPTS} per match)"
+                    ),
+                }),
+            )
+                .into_response();
+        }
+    }
+
+    let env = inst.environment.read().await;
+    let Some(result) = env.play_along_guess(&req.guess) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: format!(
+                    "environment '{}' does not support play-along",
+                    inst.environment_type
+                ),
+            }),
+        )
+            .into_response();
+    };
+
+    match result {
+        Ok(value) => {
+            let mut attempts = inst.play_along_attempts.write().await;
+            *attempts.entry(ip).or_insert(0) += 1;
+            (StatusCode::OK, Json(value)).into_response()
+        }
+        Err(EnvironmentError::InvalidAction(msg)) => bad_request(msg),
+        Err(e) => internal(e),
+    }
 }

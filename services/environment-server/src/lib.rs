@@ -56,6 +56,8 @@ pub struct MatchInstance {
     /// Append-only log of all broadcast events for spectator catchup on connect.
     pub event_log: RwLock<Vec<serde_json::Value>>,
     pub is_terminal: std::sync::atomic::AtomicBool,
+    /// Per-IP play-along attempt counts; reaped with the match.
+    pub play_along_attempts: RwLock<HashMap<std::net::IpAddr, u32>>,
 }
 
 #[derive(Clone)]
@@ -232,10 +234,20 @@ pub struct MatchStatusResponse {
     pub match_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct PlayAlongRequest {
+    pub guess: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
     pub error: String,
 }
+
+/// Per-IP cap on play-along attempts within a single match. Mirrors the
+/// 6-guess limit the agents play under — also bounds any attempt to reverse
+/// the target via brute-forcing the endpoint.
+pub const PLAY_ALONG_MAX_ATTEMPTS: u32 = 6;
 
 fn deserialize_player_id<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
@@ -320,6 +332,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/matches/:id/status", get(routes::get_status))
         .route("/matches/:id/player_names", get(routes::get_player_names))
         .route("/matches/:id/spectator/ws", get(routes::spectator_ws))
+        .route(
+            "/matches/:id/play-along/guess",
+            post(routes::play_along_guess),
+        )
         // Serve the 3D viewer assets out of static/viewer/.
         .nest_service("/viewer", ServeDir::new(format!("{static_dir}/viewer")))
         // Cap request bodies at 64 KiB. Action JSON is rarely > 1 KiB; the

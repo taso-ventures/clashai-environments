@@ -43,7 +43,9 @@ async fn main() {
 
     axum::serve(
         listener,
-        <_ as axum::ServiceExt<axum::extract::Request>>::into_make_service(app),
+        <_ as axum::ServiceExt<axum::extract::Request>>::into_make_service_with_connect_info::<
+            SocketAddr,
+        >(app),
     )
     .await
     .expect("server error");

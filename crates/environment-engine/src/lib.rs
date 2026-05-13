@@ -148,6 +148,17 @@ pub trait Environment: Send + Sync {
 
     /// Return a list of player IDs in this environment.
     fn player_ids(&self) -> Vec<String>;
+
+    /// Optional hook for spectator-side play-along guess validation.
+    ///
+    /// Environments that support letting a human spectator try the same
+    /// puzzle the agents are racing on (currently: Wordle) override this to
+    /// return `Some(feedback_json)`. The default returns `None`, signaling
+    /// the environment doesn't expose a play-along path — the server then
+    /// responds 404 to play-along requests.
+    fn play_along_guess(&self, _guess: &str) -> Option<Result<serde_json::Value>> {
+        None
+    }
 }
 
 /// Configuration for creating a new environment instance.
