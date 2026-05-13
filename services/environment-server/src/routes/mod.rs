@@ -482,6 +482,10 @@ pub async fn spectator_ws(
 pub async fn play_along_guess(
     Path(match_id): Path<String>,
     State(state): State<AppState>,
+    // Direct TCP peer; X-Forwarded-For is intentionally not honored. Behind
+    // a reverse proxy every spectator presents the proxy's IP and the
+    // 6-attempt cap becomes match-global — front with a per-IP limiter or
+    // run the server edge-facing if per-spectator caps matter.
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Json(req): Json<PlayAlongRequest>,
 ) -> Response {
