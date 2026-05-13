@@ -412,6 +412,24 @@ class WordleViewer {
       this.winnerReason.textContent = reasonText;
     }
     this._renderPhaseIndicator();
+    this._installGameOverDismiss();
+  }
+
+  /** Hide the results overlay on the first user interaction so the
+   *  rest of the page (tabs, keyboard, spoiler toggle, chat) is no
+   *  longer visually obscured. Re-appears only on page reload. */
+  _installGameOverDismiss() {
+    if (this._gameOverDismissArmed) return;
+    this._gameOverDismissArmed = true;
+    const dismiss = () => {
+      if (this.gameOverEl) this.gameOverEl.classList.add('hidden');
+      document.removeEventListener('pointerdown', dismiss, true);
+      document.removeEventListener('keydown', dismiss, true);
+    };
+    // Capture-phase so the listener fires before any handler that might
+    // stopPropagation (e.g. on the tab buttons or virtual keyboard keys).
+    document.addEventListener('pointerdown', dismiss, true);
+    document.addEventListener('keydown', dismiss, true);
   }
 
   // ─── Tabs ───
