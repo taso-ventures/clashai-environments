@@ -277,15 +277,16 @@ impl WordleGame {
 
     /// Evaluate a spectator-side play-along guess against the match's target
     /// word. Returns `(feedback, solved)`. Does not mutate game state — the
-    /// AI agents' progress is unaffected. Only callable during the `Guessing`
-    /// phase; rejects otherwise so the target word isn't leaked through this
-    /// path during Lobby (where it hasn't been chosen for spectator view) or
-    /// Banter/GameOver (where it's already revealed via `full_state`).
+    /// AI agents' progress is unaffected. Rejects only during the `Lobby`
+    /// phase (before the target has been committed to the match) so the
+    /// user can keep playing after the agents have finished — during Banter
+    /// or GameOver the target is already public via `full_state` anyway,
+    /// so allowing the endpoint there leaks nothing.
     pub fn evaluate_play_along_guess(
         &self,
         guess: &str,
     ) -> Result<(Vec<LetterFeedback>, bool), EngineError> {
-        if self.phase != WordlePhase::Guessing {
+        if self.phase == WordlePhase::Lobby {
             return Err(EngineError::InvalidPhase);
         }
         let normalized = guess.trim().to_lowercase();

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use eval_runtime::{EnvironmentState, SequentialPhase, SequentialState};
 use wordle_protocol::{
-    word_list, ChatPhase, LetterFeedback, PlayerId, TerminalReason, WordleAction, WordleConfig,
-    WordleGame, WordlePhase,
+    word_list, ChatPhase, EngineError, LetterFeedback, PlayerId, TerminalReason, WordleAction,
+    WordleConfig, WordleGame, WordlePhase,
 };
 
 fn names() -> HashMap<PlayerId, String> {
@@ -337,4 +337,70 @@ fn target_word_is_hidden_until_match_ends() {
         !opp_field_names.iter().any(|k| k == "target_word"),
         "OpponentSummary must not carry target_word"
     );
+}
+
+#[test]
+fn evaluate_play_along_rejects_during_lobby() {
+    let game = game_with_target("crane");
+    let result = game.evaluate_play_along_guess("slate");
+    assert!(
+        matches!(result, Err(EngineError::InvalidPhase)),
+        "play-along should be rejected during Lobby"
+    );
+}
+
+#[test]
+fn evaluate_play_along_works_during_guessing() {
+    let mut game = game_with_target("crane");
+    game.apply_action(0, &guess("slate")).unwrap();
+    let (feedback, solved) = game
+        .evaluate_play_along_guess("crane")
+        .expect("guessing-phase play-along accepted");
+    assert_eq!(feedback.len(), 5);
+    assert!(solved);
+}
+
+#[test]
+fn evaluate_play_along_works_after_match_ends() {
+    // Drive the match to Banter, then to GameOver, and verify the
+    // play-along endpoint accepts in BOTH phases — the user should be
+    // able to keep playing after the agents have finished. Target is
+    // already revealed via full_state at those phases so allowing
+    // play-along leaks nothing.
+    let mut game = game_with_target("civic");
+    game.apply_action(0, &guess("crane")).unwrap();
+    for _ in 0..5 {
+        if !game.full_state().players[1].solved {
+            game.apply_action(1, &guess("grape")).unwrap();
+        }
+        if !game.full_state().players[2].solved {
+            game.apply_action(2, &guess("joker")).unwrap();
+        }
+        if !game.full_state().players[0].solved {
+            game.apply_action(0, &guess("crane")).unwrap();
+        }
+    }
+    while !game.full_state().players[1].solved && !game.full_state().players[1].eliminated {
+        game.apply_action(1, &guess("grape")).unwrap();
+    }
+    while !game.full_state().players[2].solved && !game.full_state().players[2].eliminated {
+        game.apply_action(2, &guess("joker")).unwrap();
+    }
+    assert_eq!(game.full_state().phase, WordlePhase::Banter);
+    let (feedback, _) = game
+        .evaluate_play_along_guess("slate")
+        .expect("banter-phase play-along accepted");
+    assert_eq!(feedback.len(), 5);
+
+    // Exhaust banter budget to advance to GameOver and verify again.
+    for _ in 0..3 {
+        game.apply_action(0, &send("gg")).unwrap();
+        game.apply_action(1, &send("gg")).unwrap();
+        game.apply_action(2, &send("gg")).unwrap();
+    }
+    assert_eq!(game.full_state().phase, WordlePhase::GameOver);
+    let (feedback, _) = game
+        .evaluate_play_along_guess("slate")
+        .expect("game-over-phase play-along accepted");
+    assert_eq!(feedback.len(), 5);
 }
