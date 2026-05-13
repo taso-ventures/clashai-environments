@@ -390,6 +390,45 @@ fn test_filtered_for_player_steal_phase_hides_target() {
     assert!(filtered.target.is_none());
 }
 
+// Active-team Psychic retains target visibility through StealPhase (the
+// steal window ends with the round resolving; until then the Psychic is
+// the only one with the original CluePhase knowledge). Regression test
+// for an off-by-one in `cluegiver_for_team`'s StealPhase arm.
+//
+// Setup: make_test_state seats player 0 as the team-0 cluegiver
+// (cluegiver_rotation = [0, 0] -> player_ids[0] = 0).
+#[test]
+fn test_filtered_for_player_steal_phase_psychic_retains_target() {
+    let state = make_test_state(TurnPhase::StealPhase {
+        active_team: 0,
+        stealing_team: 1,
+        clue: "lukewarm".to_string(),
+        active_guess: 0.65,
+        pending_steals: HashMap::new(),
+    });
+
+    // Player 0 is the active-team Psychic — must still see target.
+    let filtered = state.filtered_for_player(0);
+    assert!(
+        filtered.target.is_some(),
+        "active-team Psychic should retain target through StealPhase"
+    );
+
+    // Player 1 is the active-team's NON-cluegiver teammate — must not.
+    let filtered = state.filtered_for_player(1);
+    assert!(
+        filtered.target.is_none(),
+        "active-team non-Psychic teammate must not see target in StealPhase"
+    );
+
+    // Player 3 is on the opposing/stealing team — must not.
+    let filtered = state.filtered_for_player(3);
+    assert!(
+        filtered.target.is_none(),
+        "stealing-team players must not see target in StealPhase"
+    );
+}
+
 // ─── 6. filtered_for_player — after resolving, all see target ───
 
 #[test]

@@ -340,18 +340,17 @@ impl VibeCheckState {
                 if *active_team != team {
                     return None;
                 }
-                // Resolve via cluegiver_rotation: it records the *next*
-                // cluegiver index per team, so the current round's
-                // cluegiver is the index one behind (mod team size).
+                // Resolve via cluegiver_rotation: the engine sets
+                // rotation_idx to the CURRENT cluegiver's index when each
+                // round begins (advance_to_next_round increments first,
+                // then reads team_players[rotation_idx] as the new
+                // cluegiver). So rotation_idx == current_cluegiver_idx for
+                // the duration of CluePhase / GuessPhase / StealPhase. No
+                // off-by-one adjustment needed.
                 let team_state = self.teams.iter().find(|t| t.team_id == team)?;
                 let team_idx = self.teams.iter().position(|t| t.team_id == team)?;
-                let next_idx = *self.cluegiver_rotation.get(team_idx)?;
-                let team_size = team_state.player_ids.len();
-                if team_size == 0 {
-                    return None;
-                }
-                let current_idx = (next_idx + team_size - 1) % team_size;
-                team_state.player_ids.get(current_idx).copied()
+                let rotation_idx = *self.cluegiver_rotation.get(team_idx)?;
+                team_state.player_ids.get(rotation_idx).copied()
             }
             _ => None,
         }
