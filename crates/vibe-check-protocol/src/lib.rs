@@ -340,13 +340,9 @@ impl VibeCheckState {
                 if *active_team != team {
                     return None;
                 }
-                // Resolve via cluegiver_rotation: the engine sets
-                // rotation_idx to the CURRENT cluegiver's index when each
-                // round begins (advance_to_next_round increments first,
-                // then reads team_players[rotation_idx] as the new
-                // cluegiver). So rotation_idx == current_cluegiver_idx for
-                // the duration of CluePhase / GuessPhase / StealPhase. No
-                // off-by-one adjustment needed.
+                // rotation_idx points at the CURRENT cluegiver throughout the round —
+                // advance_to_next_round increments before publishing the new cluegiver.
+                // Mirrors vibe-check-engine::current_cluegiver().
                 let (team_idx, team_state) = self
                     .teams
                     .iter()
