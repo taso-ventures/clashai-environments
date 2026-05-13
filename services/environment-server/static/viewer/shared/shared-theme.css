@@ -1,0 +1,427 @@
+/* =====================================================
+   Shared Cyberpunk Design Tokens
+   =====================================================
+   Common CSS custom properties and base styles used
+   across all game spectator viewers.
+   ===================================================== */
+
+:root {
+  /* Base Palette */
+  --bg-deep: #0a0f14;
+  --bg-panel: rgba(0, 40, 50, 0.85);
+  --bg-panel-light: rgba(0, 60, 70, 0.7);
+
+  /* Glow Colors */
+  --glow-primary: #00ffcc;
+  --glow-secondary: #00e5ff;
+  --glow-accent: #ff9500;
+  --glow-danger: #ff4444;
+  --glow-success: #44ff88;
+
+  /* Text */
+  --text-primary: #f0f0f0;
+  --text-secondary: #88aaaa;
+  --text-muted: #557777;
+
+  /* Timing */
+  --transition-fast: 0.15s;
+  --transition-medium: 0.3s;
+  --transition-slow: 0.5s;
+}
+
+/* =====================================================
+   Base Reset
+   ===================================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: 'Geist Sans', 'Geist', sans-serif;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* =====================================================
+   Canvas & Overlay
+   ===================================================== */
+
+#three-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+#ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#ui-overlay > * {
+  pointer-events: auto;
+}
+
+/* =====================================================
+   Utility
+   ===================================================== */
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* =====================================================
+   Connection Status (shared)
+   ===================================================== */
+
+#connection-status {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--bg-panel);
+  border: 1px solid rgba(255, 149, 0, 0.5);
+  border-radius: 8px;
+  transition: opacity var(--transition-medium);
+}
+
+#connection-status.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  background: var(--glow-accent);
+  border-radius: 50%;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.status-text {
+  font-size: 14px;
+  line-height: 18px;
+  letter-spacing: -0.28px;
+  color: var(--glow-accent);
+}
+
+/* =====================================================
+   Reasoning Bubbles (shared base)
+   ===================================================== */
+
+#reasoning-bubbles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.reasoning-bubble {
+  position: absolute;
+  max-width: 260px;
+  padding: 10px 14px;
+  background: rgba(0, 30, 40, 0.4);
+  border: 1px solid rgba(0, 255, 204, 0.12);
+  border-left: 3px solid var(--glow-primary);
+  border-radius: 10px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity var(--transition-medium), max-width var(--transition-medium);
+}
+
+.reasoning-bubble.visible {
+  opacity: 1;
+}
+
+.reasoning-bubble.fade-out {
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+}
+
+.reasoning-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid rgba(0, 30, 40, 0.4);
+}
+
+.reasoning-bubble .bubble-text {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: -0.24px;
+  color: var(--text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: all var(--transition-medium);
+}
+
+.reasoning-bubble:hover {
+  max-width: 380px;
+}
+
+.reasoning-bubble:hover .bubble-text {
+  -webkit-line-clamp: unset;
+}
+
+/* Action tag badge on reasoning bubbles */
+.bubble-action-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 14px;
+  margin-bottom: 4px;
+  color: var(--bg-deep);
+  animation: tag-pop 0.25s ease-out;
+}
+
+@keyframes tag-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.bubble-action-tag.action-steal       { background: #d4af37; }
+.bubble-action-tag.action-tax         { background: #9b59b6; }
+.bubble-action-tag.action-assassinate { background: #ff2222; }
+.bubble-action-tag.action-coup        { background: #ff4444; }
+.bubble-action-tag.action-income      { background: #88aaaa; }
+.bubble-action-tag.action-foreign-aid { background: #44ff88; }
+.bubble-action-tag.action-exchange    { background: #27ae60; }
+.bubble-action-tag.action-challenge   { background: #ff9500; }
+.bubble-action-tag.action-block       { background: #00e5ff; }
+
+/* Shimmer effect while typing */
+.reasoning-bubble.typing .bubble-text {
+  background: linear-gradient(
+    90deg,
+    var(--text-primary) 0%,
+    var(--glow-primary) 50%,
+    var(--text-primary) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: bubble-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes bubble-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* =====================================================
+   Reasoning Toggle Button
+   ===================================================== */
+
+.reasoning-toggle {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  border-radius: 50%;
+  background: var(--bg-panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  transition: opacity var(--transition-medium), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.reasoning-toggle:hover {
+  transform: scale(1.1);
+  border-color: var(--glow-primary);
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+}
+
+.reasoning-toggle.off {
+  opacity: 0.4;
+}
+
+/* Bump above replay bar when visible */
+#ui-overlay:has(#replay-controls:not(.hidden)) .reasoning-toggle {
+  bottom: 60px;
+}
+
+/* Hide reasoning bubbles when toggled off */
+.reasoning-hidden #reasoning-bubbles {
+  display: none;
+}
+
+/* =====================================================
+   Camera Controls — Floating 3D Markers + Home Button
+   ===================================================== */
+
+.camera-markers {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.camera-marker {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  border: none;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  padding: 0;
+  transition: transform var(--transition-fast);
+}
+
+.camera-marker:hover {
+  transform: translate(-50%, -50%) scale(1.3);
+}
+
+.camera-marker-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--marker-color, #888);
+  box-shadow: 0 0 6px var(--marker-color, #888), 0 0 12px var(--marker-color, #888);
+  transition: width var(--transition-fast), height var(--transition-fast);
+}
+
+.camera-marker:hover .camera-marker-dot {
+  width: 14px;
+  height: 14px;
+}
+
+.camera-marker-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid var(--marker-color, #888);
+  border-radius: 50%;
+  opacity: 0.4;
+  transition: opacity var(--transition-fast), width var(--transition-fast), height var(--transition-fast);
+}
+
+.camera-marker:hover .camera-marker-ring {
+  opacity: 0.8;
+}
+
+/* Focused state — pulsing ring */
+.camera-marker.focused .camera-marker-ring {
+  opacity: 1;
+  width: 28px;
+  height: 28px;
+  border-width: 2px;
+  animation: marker-pulse 1.5s ease-in-out infinite;
+}
+
+.camera-marker.focused .camera-marker-dot {
+  width: 12px;
+  height: 12px;
+  box-shadow: 0 0 8px var(--marker-color, #888), 0 0 20px var(--marker-color, #888);
+}
+
+@keyframes marker-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.5; }
+}
+
+/* Home button — small fixed pill, only visible when focused on a player */
+.camera-home-btn {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  border-radius: 50%;
+  background: var(--bg-panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--transition-medium), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.camera-home-btn.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.camera-home-btn:hover {
+  transform: scale(1.1);
+  border-color: var(--glow-primary);
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+}
+
+.camera-home-icon {
+  color: var(--glow-primary);
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Bump home button above replay bar */
+#ui-overlay:has(#replay-controls:not(.hidden)) .camera-home-btn {
+  bottom: 60px;
+}

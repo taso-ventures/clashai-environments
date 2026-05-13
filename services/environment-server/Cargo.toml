@@ -1,0 +1,56 @@
+[package]
+name = "environment-server"
+version = "0.1.0"
+edition = "2021"
+description = "Unified HTTP/WebSocket server hosting game environments over a standard agent protocol"
+license = "MIT"
+repository = "https://github.com/taso-ventures/clashai-environments"
+publish = false
+
+[lib]
+name = "environment_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "environment-server"
+path = "src/main.rs"
+
+[dependencies]
+# Web framework
+axum = { workspace = true, features = ["ws", "json"] }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["cors", "fs", "limit", "normalize-path"] }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Observability
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Redis (optional, for replay event persistence)
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+
+# Utilities
+ulid = { workspace = true }
+rand = "0.8"
+
+# Environment abstraction (all games)
+environment-engine = { path = "../../crates/environment-engine", features = ["coup", "vibe_check", "red_button", "wordle", "poker", "tic_tac_toe", "connect_four"] }
+
+# Unified event protocol
+unified-event-protocol = { path = "../../crates/unified-event-protocol" }
+
+# Individual protocol types for static routes
+red-button-protocol = { path = "../../crates/red-button-protocol" }
+
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["json", "blocking", "rustls-tls"] }
+tokio-tungstenite = { version = "0.24" }
+futures-util = "0.3"
+
+[[example]]
+name = "minimal-client"
+path = "examples/minimal-client.rs"

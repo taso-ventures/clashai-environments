@@ -1,0 +1,45 @@
+[package]
+name = "environment-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Environment-agnostic game engine trait and implementations"
+license = "MIT"
+repository = "https://github.com/taso-ventures/clashai-environments"
+publish = false
+
+[dependencies]
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+eval-runtime = { path = "../eval-runtime" }
+
+# Environment implementations (optional)
+coup-engine = { path = "../coup-engine", optional = true }
+coup-protocol = { path = "../coup-protocol", optional = true }
+vibe-check-engine = { path = "../vibe-check-engine", optional = true }
+vibe-check-protocol = { path = "../vibe-check-protocol", optional = true }
+connect-four-protocol = { path = "../connect-four-protocol", optional = true }
+red-button-protocol = { path = "../red-button-protocol", optional = true }
+tic-tac-toe-protocol = { path = "../tic-tac-toe-protocol", optional = true }
+wordle-protocol = { path = "../wordle-protocol", optional = true }
+poker-protocol = { path = "../poker-protocol", optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full", "test-util"] }
+wordle-protocol = { path = "../wordle-protocol" }
+
+[features]
+default = ["connect_four", "coup", "vibe_check", "red_button", "wordle", "tic_tac_toe", "poker"]
+connect_four = ["dep:connect-four-protocol"]
+coup = ["dep:coup-engine", "dep:coup-protocol"]
+vibe_check = ["dep:vibe-check-engine", "dep:vibe-check-protocol"]
+red_button = ["dep:red-button-protocol"]
+tic_tac_toe = ["dep:tic-tac-toe-protocol"]
+wordle = ["dep:wordle-protocol"]
+poker = ["dep:poker-protocol"]

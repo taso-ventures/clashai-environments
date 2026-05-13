@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wordle Spectator</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+  <link rel="stylesheet" href="shared/shared-theme.css?v=2">
+  <link rel="stylesheet" href="wordle-styles.css?v=1">
+</head>
+<body>
+  <div id="wordle-container" role="application" aria-label="Wordle match spectator viewer">
+    <header id="header">
+      <img class="brand-logo" src="assets/ui/wordmark.svg" alt="" draggable="false">
+      <div id="match-info">
+        <span class="game-label">WORDLE</span>
+        <span id="phase-indicator"></span>
+      </div>
+      <div id="conn-badge" class="conn-badge connecting">CONNECTING</div>
+    </header>
+
+    <nav id="tabs" role="tablist" aria-label="Wordle view">
+      <button id="tab-your-play" role="tab" aria-selected="false" data-tab="your_play" type="button">Your Play</button>
+      <button id="tab-ai-replay" role="tab" aria-selected="true" data-tab="ai_replay" type="button">AI Replay</button>
+      <button id="spoiler-toggle" type="button" aria-pressed="false" title="Hide guessed letters">
+        <svg class="icon-eye" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/>
+          <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <svg class="icon-eye-off" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.94 10.94 0 0112 19c-6.5 0-10-7-10-7a19.78 19.78 0 014.06-5.06M9.9 4.24A10.94 10.94 0 0112 5c6.5 0 10 7 10 7a19.78 19.78 0 01-2.16 3.19M1 1l22 22M14.12 14.12a3 3 0 11-4.24-4.24"/>
+        </svg>
+      </button>
+    </nav>
+
+    <main id="content">
+      <section id="agent-grids" role="tabpanel" aria-labelledby="tab-ai-replay" aria-label="Agent guess grids">
+        <div id="agent-grids-empty" class="empty-state">Waiting for match to start...</div>
+      </section>
+
+      <section id="user-play" role="tabpanel" aria-labelledby="tab-your-play" aria-label="Your wordle play" hidden>
+        <div id="user-grid" class="grid-rows"></div>
+        <div id="user-status" class="user-status"></div>
+        <div id="user-keyboard" class="keyboard"></div>
+      </section>
+
+      <section id="chat-panel" aria-label="Agent chat">
+        <div class="panel-header">Conversation</div>
+        <div id="chat-feed">
+          <div class="empty-state">Waiting for messages...</div>
+        </div>
+      </section>
+    </main>
+
+    <div id="game-over-overlay" class="hidden">
+      <div id="game-over-content">
+        <h1 id="winner-title">RESULTS</h1>
+        <div id="winner-name"></div>
+        <div id="winner-reason"></div>
+      </div>
+    </div>
+
+    <div id="connection-status" class="hidden">
+      <span class="status-dot"></span>
+      <span class="status-text">Reconnecting...</span>
+    </div>
+  </div>
+  <script type="module" src="wordle-viewer.js?v=1"></script>
+</body>
+</html>

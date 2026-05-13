@@ -1,0 +1,15 @@
+target/
+.git/
+
+# Local/editor state
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
+.claude/
+*.swp
+*.swo
+
+# Local audit notes
+AUDIT_BUGS.md

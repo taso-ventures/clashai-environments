@@ -1,0 +1,138 @@
+/* =====================================================
+   Replay Controls — Bottom Playback Bar
+   =====================================================
+   Cyberpunk-themed playback controls for completed match
+   replay. Positioned at viewport bottom, uses shared
+   design tokens from shared-theme.css.
+   ===================================================== */
+
+#replay-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  height: 48px;
+  background: var(--bg-panel);
+  border-top: 1px solid rgba(0, 255, 204, 0.2);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+  transition: opacity var(--transition-medium);
+}
+
+#replay-controls.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(100%);
+}
+
+/* ─── Buttons ─── */
+
+.replay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  border-radius: 4px;
+  color: var(--glow-primary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  line-height: 1;
+  padding: 0;
+}
+
+.replay-btn:hover {
+  background: rgba(0, 255, 204, 0.15);
+  border-color: rgba(0, 255, 204, 0.5);
+}
+
+.replay-btn:active {
+  background: rgba(0, 255, 204, 0.25);
+}
+
+/* ─── Scrubber ─── */
+
+#replay-scrubber {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+#replay-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--glow-primary);
+  box-shadow: 0 0 8px rgba(0, 255, 204, 0.5);
+  cursor: pointer;
+}
+
+#replay-scrubber::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  background: var(--glow-primary);
+  box-shadow: 0 0 8px rgba(0, 255, 204, 0.5);
+  cursor: pointer;
+}
+
+#replay-scrubber::-webkit-slider-runnable-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+#replay-scrubber::-moz-range-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+/* ─── Position Counter ─── */
+
+#replay-position {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* ─── Speed Selector ─── */
+
+#replay-speed {
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  border-radius: 4px;
+  color: var(--glow-primary);
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  padding: 4px 6px;
+  cursor: pointer;
+  outline: none;
+}
+
+#replay-speed option {
+  background: #0a1520;
+  color: var(--text-primary);
+}
+
+#replay-speed:hover {
+  border-color: rgba(0, 255, 204, 0.5);
+}

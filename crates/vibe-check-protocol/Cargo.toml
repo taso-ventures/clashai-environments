@@ -1,0 +1,13 @@
+[package]
+name = "vibe-check-protocol"
+version = "0.1.0"
+edition = "2021"
+description = "Protocol types for Vibe Check environment"
+license = "MIT"
+repository = "https://github.com/taso-ventures/clashai-environments"
+publish = false
+
+[dependencies]
+eval-runtime = { path = "../eval-runtime" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

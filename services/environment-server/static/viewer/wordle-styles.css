@@ -1,0 +1,605 @@
+/* =====================================================
+   Wordle Spectator Viewer
+   Base styles imported via shared-theme.css
+   ===================================================== */
+
+:root {
+  --tile-correct: #22c55e;
+  --tile-correct-glow: rgba(34, 197, 94, 0.5);
+  --tile-present: #f59e0b;
+  --tile-present-glow: rgba(245, 158, 11, 0.45);
+  --tile-absent: #374151;
+  --tile-absent-glow: rgba(55, 65, 81, 0.3);
+}
+
+body, html {
+  height: 100%;
+  margin: 0;
+  background: var(--bg-base, #0a1520);
+  color: var(--text-primary, #e5e7eb);
+  font-family: 'Geist Sans', system-ui, sans-serif;
+}
+
+#wordle-container {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =====================================================
+   Header
+   ===================================================== */
+
+#header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(180deg, rgba(0, 20, 30, 0.9) 0%, transparent 100%);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.brand-logo {
+  height: 24px;
+  width: auto;
+  filter:
+    drop-shadow(0 0 6px var(--glow-primary))
+    drop-shadow(0 0 14px rgba(0, 255, 204, 0.45));
+  opacity: 0.9;
+  user-select: none;
+  pointer-events: none;
+}
+
+#match-info {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: -0.24px;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.game-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--glow-primary, #00ffcc);
+  text-shadow: 0 0 8px var(--glow-primary, #00ffcc);
+}
+
+#phase-indicator {
+  padding: 4px 12px;
+  background: var(--bg-panel, rgba(10, 20, 30, 0.6));
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--glow-primary, #00ffcc);
+}
+
+#phase-indicator:empty {
+  display: none;
+}
+
+#spoiler-toggle {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 6px 8px;
+  margin-left: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 120ms ease;
+}
+
+#spoiler-toggle:hover {
+  color: #fff;
+}
+
+#spoiler-toggle .icon-eye-off {
+  display: none;
+}
+
+#spoiler-toggle[aria-pressed="true"] .icon-eye {
+  display: none;
+}
+
+#spoiler-toggle[aria-pressed="true"] .icon-eye-off {
+  display: inline-block;
+}
+
+.conn-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.conn-badge.running { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.conn-badge.terminal { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.conn-badge.connecting { background: rgba(107, 114, 128, 0.2); color: var(--text-muted, #6b7280); }
+
+/* =====================================================
+   Layout
+   ===================================================== */
+
+#content {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 20px;
+  padding: 16px 24px 24px;
+}
+
+@media (max-width: 900px) {
+  #content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* =====================================================
+   Agent Grids
+   ===================================================== */
+
+#agent-grids {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-content: start;
+}
+
+@media (min-width: 1100px) {
+  /* 3-column layout for 6 agents (3x2) — matches internal Wordle layout. */
+  #agent-grids {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.agent-card {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px;
+  overflow: hidden;
+  animation: cardFadeIn 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+@keyframes cardFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.agent-card .agent-header {
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.agent-card .agent-name {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+  margin-bottom: 2px;
+}
+
+.agent-card .agent-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.agent-card .agent-status.solved { color: var(--tile-correct); }
+.agent-card .agent-status.failed { color: #ef4444; }
+
+.grid-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.grid-row {
+  display: flex;
+  gap: 4px;
+}
+
+.tile {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  color: #fff;
+  transition: background 0.4s ease, border-color 0.4s ease, transform 0.3s ease;
+}
+
+@media (min-width: 480px) {
+  .tile { width: 36px; height: 36px; font-size: 15px; }
+}
+
+.tile.has-letter {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.tile.correct {
+  background: var(--tile-correct);
+  border-color: var(--tile-correct);
+  box-shadow: 0 0 10px var(--tile-correct-glow);
+  color: #fff;
+}
+
+.tile.present {
+  background: var(--tile-present);
+  border-color: var(--tile-present);
+  box-shadow: 0 0 10px var(--tile-present-glow);
+  color: #fff;
+}
+
+.tile.absent {
+  background: var(--tile-absent);
+  border-color: var(--tile-absent);
+  color: #fff;
+}
+
+.tile.flip-in {
+  animation: tileFlip 0.6s ease-in-out;
+}
+
+@keyframes tileFlip {
+  0%   { transform: rotateX(0deg); }
+  50%  { transform: rotateX(90deg); }
+  100% { transform: rotateX(0deg); }
+}
+
+/* =====================================================
+   Chat Panel
+   ===================================================== */
+
+/* iMessage-style light chat panel — mirrors the internal Wordle chat UI. */
+
+#chat-panel {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #f7f7f9;
+  display: flex;
+  flex-direction: column;
+  /* Size to content with a sane cap, instead of always stretching to the
+     full viewport height — keeps the empty space at the bottom of short
+     matches from dominating the layout. */
+  max-height: min(720px, calc(100vh - 120px));
+  align-self: start;
+  position: sticky;
+  top: 76px;
+  overflow: hidden;
+}
+
+#chat-panel .panel-header {
+  padding: 12px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #6b7280;
+  background: #f7f7f9;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+  text-align: center;
+}
+
+#chat-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+#chat-feed::-webkit-scrollbar { width: 6px; }
+#chat-feed::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 3px; }
+
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: chatFadeIn 0.25s ease;
+}
+
+@keyframes chatFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.chat-meta {
+  font-size: 12px;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding-left: 10px;
+}
+
+.chat-meta .author {
+  font-weight: 700;
+}
+
+.chat-bubble {
+  padding: 9px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.45;
+  background: #ffffff;
+  color: #1f2937;
+  align-self: flex-start;
+  max-width: 86%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  word-wrap: break-word;
+}
+
+#chat-feed .empty-state {
+  background: transparent;
+  color: #6b7280;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 24px 12px;
+  font-size: 12px;
+  color: var(--text-muted, #6b7280);
+  letter-spacing: 0.5px;
+}
+
+/* =====================================================
+   Game Over Overlay
+   ===================================================== */
+
+#game-over-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.55) 100%);
+  z-index: 30;
+  /* Click-through so the user can still hit the tabs, spoiler toggle, and
+     "Your Play" keyboard after the agents have finished. Nothing inside
+     the overlay is interactive, so pointer-events: none on the whole
+     element is the cleanest fix. */
+  pointer-events: none;
+}
+
+#game-over-overlay.hidden {
+  opacity: 0;
+}
+
+#game-over-content {
+  text-align: center;
+  animation: victory-entrance 1s ease-out;
+}
+
+@keyframes victory-entrance {
+  0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
+  50%  { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+#game-over-content h1 {
+  font-size: 80px;
+  line-height: 80px;
+  font-weight: 600;
+  letter-spacing: -3.2px;
+  margin-bottom: 20px;
+  color: var(--tile-correct);
+  text-shadow:
+    0 0 20px var(--tile-correct),
+    0 0 40px var(--tile-correct),
+    0 0 60px var(--tile-correct-glow);
+}
+
+#winner-name {
+  font-size: 22px;
+  line-height: 26px;
+  letter-spacing: -0.6px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 8px;
+  max-width: 600px;
+}
+
+#winner-reason {
+  font-size: 13px;
+  color: var(--text-muted, #9ca3af);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* =====================================================
+   Connection Status
+   ===================================================== */
+
+#connection-status {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-muted, #9ca3af);
+  z-index: 25;
+}
+
+#connection-status.hidden { display: none; }
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fbbf24;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* =====================================================
+   Tabs (AI Replay / Your Play)
+   ===================================================== */
+
+#tabs {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px 0;
+}
+
+#tabs button[role="tab"] {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  padding: 7px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+#tabs button[role="tab"]:hover {
+  color: #fff;
+}
+
+/* Active tab: solid white pill with dark text — high-contrast pill matches
+   the internal viewer's affordance for "selected." */
+#tabs button[role="tab"][aria-selected="true"] {
+  color: #0a0a0a;
+  background: #fff;
+}
+
+/* Force-hide the inactive tabpanel. Without this, `#agent-grids { display:
+   grid }` (the base rule) overrides the [hidden] attribute's implicit
+   `display: none` and both panels render side-by-side. */
+#agent-grids[hidden] {
+  display: none;
+}
+
+/* Spoiler toggle lives inside the tabs strip; only meaningful in AI Replay
+   view. Hide it while the user-play panel is on screen. */
+body.tab-your-play #spoiler-toggle {
+  display: none;
+}
+
+/* =====================================================
+   User Play panel
+   ===================================================== */
+
+#user-play[hidden] { display: none; }
+
+#user-play {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+#user-grid .tile {
+  width: 56px;
+  height: 56px;
+  font-size: 28px;
+}
+
+.tile.user-input.has-letter {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.tile.active-cell {
+  border-color: var(--glow-primary, #00ffcc);
+}
+
+.user-status {
+  font-size: 13px;
+  color: var(--text-secondary, #9ca3af);
+  min-height: 18px;
+  text-align: center;
+}
+
+.user-status.error { color: #ef4444; }
+.user-status.solved { color: var(--tile-correct); font-weight: 700; }
+
+/* =====================================================
+   Virtual Keyboard
+   ===================================================== */
+
+.keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  user-select: none;
+}
+
+.kb-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.kb-key {
+  min-width: 32px;
+  height: 48px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-primary, #fff);
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.kb-key:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.kb-key:active {
+  transform: translateY(1px);
+}
+
+.kb-key.kb-wide {
+  min-width: 56px;
+  font-size: 11px;
+}
