@@ -90,23 +90,20 @@ body, html {
 }
 
 #spoiler-toggle {
-  margin-left: auto;
-  margin-right: 8px;
   background: transparent;
-  border: 1px solid rgba(0, 255, 204, 0.25);
-  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
-  border-radius: 4px;
-  padding: 4px 6px;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 6px 8px;
+  margin-left: 4px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition: color 120ms ease;
 }
 
 #spoiler-toggle:hover {
-  color: var(--glow-primary, #00ffcc);
-  border-color: rgba(0, 255, 204, 0.6);
+  color: #fff;
 }
 
 #spoiler-toggle .icon-eye-off {
@@ -478,35 +475,44 @@ body, html {
 
 #tabs {
   display: flex;
-  gap: 8px;
+  gap: 4px;
+  align-items: center;
   justify-content: center;
-  padding: 8px 16px 0;
+  padding: 12px 16px 0;
 }
 
-#tabs button {
+#tabs button[role="tab"] {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
   border-radius: 999px;
-  padding: 6px 18px;
-  font-size: 13px;
+  padding: 7px 18px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  transition: color 120ms ease, background 120ms ease;
 }
 
-#tabs button:hover {
-  color: var(--glow-primary, #00ffcc);
+#tabs button[role="tab"]:hover {
+  color: #fff;
 }
 
-#tabs button[aria-selected="true"] {
-  color: var(--glow-primary, #00ffcc);
-  border-color: rgba(0, 255, 204, 0.6);
-  background: rgba(0, 255, 204, 0.08);
+/* Active tab: solid white pill with dark text — high-contrast pill matches
+   the internal viewer's affordance for "selected." */
+#tabs button[role="tab"][aria-selected="true"] {
+  color: #0a0a0a;
+  background: #fff;
 }
 
-/* Spoiler toggle is meaningful only when viewing the AI grids; hide it
-   while the user-play panel is on screen. */
+/* Force-hide the inactive tabpanel. Without this, `#agent-grids { display:
+   grid }` (the base rule) overrides the [hidden] attribute's implicit
+   `display: none` and both panels render side-by-side. */
+#agent-grids[hidden] {
+  display: none;
+}
+
+/* Spoiler toggle lives inside the tabs strip; only meaningful in AI Replay
+   view. Hide it while the user-play panel is on screen. */
 body.tab-your-play #spoiler-toggle {
   display: none;
 }
