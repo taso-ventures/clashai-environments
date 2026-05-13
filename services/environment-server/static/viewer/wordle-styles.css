@@ -471,3 +471,125 @@ body, html {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
 }
+
+/* =====================================================
+   Tabs (AI Replay / Your Play)
+   ===================================================== */
+
+#tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px 16px 0;
+}
+
+#tabs button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+  border-radius: 999px;
+  padding: 6px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+#tabs button:hover {
+  color: var(--glow-primary, #00ffcc);
+}
+
+#tabs button[aria-selected="true"] {
+  color: var(--glow-primary, #00ffcc);
+  border-color: rgba(0, 255, 204, 0.6);
+  background: rgba(0, 255, 204, 0.08);
+}
+
+/* Spoiler toggle is meaningful only when viewing the AI grids; hide it
+   while the user-play panel is on screen. */
+body.tab-your-play #spoiler-toggle {
+  display: none;
+}
+
+/* =====================================================
+   User Play panel
+   ===================================================== */
+
+#user-play[hidden] { display: none; }
+
+#user-play {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+#user-grid .tile {
+  width: 56px;
+  height: 56px;
+  font-size: 28px;
+}
+
+.tile.user-input.has-letter {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.tile.active-cell {
+  border-color: var(--glow-primary, #00ffcc);
+}
+
+.user-status {
+  font-size: 13px;
+  color: var(--text-secondary, #9ca3af);
+  min-height: 18px;
+  text-align: center;
+}
+
+.user-status.error { color: #ef4444; }
+.user-status.solved { color: var(--tile-correct); font-weight: 700; }
+
+/* =====================================================
+   Virtual Keyboard
+   ===================================================== */
+
+.keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  user-select: none;
+}
+
+.kb-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.kb-key {
+  min-width: 32px;
+  height: 48px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-primary, #fff);
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.kb-key:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.kb-key:active {
+  transform: translateY(1px);
+}
+
+.kb-key.kb-wide {
+  min-width: 56px;
+  font-size: 11px;
+}

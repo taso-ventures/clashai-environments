@@ -29,6 +29,12 @@ class WordleViewer {
     this.winnerReason = document.getElementById('winner-reason');
     this.connStatus = document.getElementById('connection-status');
     this.spoilerToggle = document.getElementById('spoiler-toggle');
+    this.tabsEl = document.getElementById('tabs');
+    this.agentGridsEl = document.getElementById('agent-grids');
+    this.userPlayEl = document.getElementById('user-play');
+    this.userGridEl = document.getElementById('user-grid');
+    this.userStatusEl = document.getElementById('user-status');
+    this.userKeyboardEl = document.getElementById('user-keyboard');
 
     this.state = null;
     this.cards = new Map(); // playerId -> { card, rows[][], statusEl }
@@ -43,6 +49,16 @@ class WordleViewer {
     // Spoiler-mode: hide letter content on agent tiles while preserving
     // color feedback. Preference persists across page reloads.
     this._spoilerHidden = localStorage.getItem('wordle.spoilerHidden') === '1';
+
+    // User-play state (the "Your Play" tab): spectator races the same
+    // target the agents are guessing. Stateless on the server; localStorage
+    // restores progress across reloads.
+    this._activeTab = 'ai_replay';
+    this._userRows = []; // 6 rows × 5 tiles refs
+    this._userGuesses = []; // [{ word, feedback, solved }]
+    this._userCurrentLetters = []; // letters in the in-progress row
+    this._userTerminal = false;
+    this._userSubmitting = false;
   }
 
   /** Run `fn` after the global animation queue has drained. */
@@ -89,6 +105,9 @@ class WordleViewer {
       this._updateSpoilerToggleTitle();
       this.spoilerToggle.addEventListener('click', () => this._toggleSpoilers());
     }
+
+    this._initTabs();
+    this._initUserPlay();
 
     // Render initial snapshot
     this._renderPlayers();
@@ -393,6 +412,256 @@ class WordleViewer {
       this.winnerReason.textContent = reasonText;
     }
     this._renderPhaseIndicator();
+  }
+
+  // ─── Tabs ───
+
+  _initTabs() {
+    if (!this.tabsEl) return;
+    for (const btn of this.tabsEl.querySelectorAll('button[data-tab]')) {
+      btn.addEventListener('click', () => this._switchTab(btn.dataset.tab));
+    }
+  }
+
+  _switchTab(tab) {
+    if (tab !== 'ai_replay' && tab !== 'your_play') return;
+    this._activeTab = tab;
+    document.body.classList.toggle('tab-your-play', tab === 'your_play');
+    if (this.agentGridsEl) this.agentGridsEl.hidden = tab !== 'ai_replay';
+    if (this.userPlayEl) this.userPlayEl.hidden = tab !== 'your_play';
+    for (const btn of this.tabsEl.querySelectorAll('button[data-tab]')) {
+      btn.setAttribute('aria-selected', String(btn.dataset.tab === tab));
+    }
+  }
+
+  // ─── Play-along (the "Your Play" tab) ───
+
+  _initUserPlay() {
+    this._buildUserGrid();
+    this._buildUserKeyboard();
+    this._loadUserGuessesFromStorage();
+    document.addEventListener('keydown', (ev) => this._onPhysicalKey(ev));
+  }
+
+  _buildUserGrid() {
+    if (!this.userGridEl) return;
+    this.userGridEl.innerHTML = '';
+    for (let r = 0; r < MAX_GUESSES; r += 1) {
+      const row = document.createElement('div');
+      row.className = 'grid-row';
+      const tiles = [];
+      for (let c = 0; c < WORD_LENGTH; c += 1) {
+        const tile = document.createElement('div');
+        tile.className = 'tile user-input';
+        row.appendChild(tile);
+        tiles.push(tile);
+      }
+      this.userGridEl.appendChild(row);
+      this._userRows.push(tiles);
+    }
+  }
+
+  _buildUserKeyboard() {
+    if (!this.userKeyboardEl) return;
+    const layout = [
+      ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+      ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+      ['ENTER', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACK'],
+    ];
+    for (const rowKeys of layout) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'kb-row';
+      for (const k of rowKeys) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'kb-key';
+        btn.dataset.key = k;
+        if (k === 'ENTER' || k === 'BACK') btn.classList.add('kb-wide');
+        btn.textContent = k === 'BACK' ? '⌫' : k;
+        btn.addEventListener('click', () => this._handleKey(k));
+        rowEl.appendChild(btn);
+      }
+      this.userKeyboardEl.appendChild(rowEl);
+    }
+  }
+
+  _onPhysicalKey(ev) {
+    if (this._activeTab !== 'your_play') return;
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      this._handleKey('ENTER');
+    } else if (ev.key === 'Backspace') {
+      ev.preventDefault();
+      this._handleKey('BACK');
+    } else if (/^[a-zA-Z]$/.test(ev.key)) {
+      ev.preventDefault();
+      this._handleKey(ev.key.toUpperCase());
+    }
+  }
+
+  _handleKey(key) {
+    if (this._userTerminal || this._userSubmitting) return;
+    if (key === 'ENTER') {
+      this._submitUserGuess();
+      return;
+    }
+    if (key === 'BACK') {
+      if (this._userCurrentLetters.length === 0) return;
+      this._userCurrentLetters.pop();
+      this._renderUserCurrentRow();
+      return;
+    }
+    if (this._userCurrentLetters.length >= WORD_LENGTH) return;
+    this._userCurrentLetters.push(key);
+    this._renderUserCurrentRow();
+  }
+
+  _renderUserCurrentRow() {
+    const rowIdx = this._userGuesses.length;
+    const row = this._userRows[rowIdx];
+    if (!row) return;
+    for (let c = 0; c < WORD_LENGTH; c += 1) {
+      const tile = row[c];
+      const letter = this._userCurrentLetters[c] ?? '';
+      tile.textContent = letter;
+      tile.classList.toggle('has-letter', letter !== '');
+      tile.classList.toggle('active-cell', c === this._userCurrentLetters.length);
+    }
+  }
+
+  async _submitUserGuess() {
+    if (this._userCurrentLetters.length !== WORD_LENGTH) {
+      this._setUserStatus('Need 5 letters', 'error');
+      return;
+    }
+    const guess = this._userCurrentLetters.join('').toLowerCase();
+    this._userSubmitting = true;
+    this._setUserStatus('');
+    try {
+      const resp = await fetch(`/matches/${this.matchId}/play-along/guess`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ guess }),
+      });
+      if (resp.status === 429) {
+        this._setUserStatus('Out of attempts for this match', 'error');
+        this._userTerminal = true;
+        return;
+      }
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        this._setUserStatus(body.error || 'Invalid guess', 'error');
+        return;
+      }
+      const { feedback, solved } = await resp.json();
+      this._userGuesses.push({ word: guess, feedback, solved });
+      this._userCurrentLetters = [];
+      this._persistUserGuesses();
+      this._paintUserRow(this._userGuesses.length - 1, guess, feedback);
+      if (solved) {
+        this._userTerminal = true;
+        this._setUserStatus(`Solved in ${this._userGuesses.length}/${MAX_GUESSES}`, 'solved');
+      } else if (this._userGuesses.length >= MAX_GUESSES) {
+        this._userTerminal = true;
+        this._setUserStatus('Out of guesses', 'error');
+      } else {
+        this._setUserStatus('');
+      }
+    } catch (err) {
+      this._setUserStatus('Network error — try again', 'error');
+    } finally {
+      this._userSubmitting = false;
+    }
+  }
+
+  _paintUserRow(rowIdx, word, feedback) {
+    const row = this._userRows[rowIdx];
+    if (!row) return;
+    // Reuse the cascade timing from agent grids so user reveals feel
+    // consistent. No serialization across players — single grid.
+    const FLIP_MS = 600;
+    const STAGGER_MS = 280;
+    const upper = word.toUpperCase();
+    for (let i = 0; i < WORD_LENGTH; i += 1) {
+      const tile = row[i];
+      if (!tile) continue;
+      const flipStart = i * STAGGER_MS;
+      const revealAt = flipStart + FLIP_MS / 2;
+      const letter = upper[i] ?? '';
+      const fb = feedback[i];
+      tile.classList.remove('active-cell');
+      tile.classList.remove('correct', 'present', 'absent');
+      tile.textContent = '';
+      setTimeout(() => tile.classList.add('flip-in'), flipStart);
+      setTimeout(() => {
+        tile.textContent = letter;
+        tile.classList.add('has-letter');
+        if (fb) tile.classList.add(fb);
+      }, revealAt);
+    }
+  }
+
+  _setUserStatus(msg, kind) {
+    if (!this.userStatusEl) return;
+    this.userStatusEl.classList.remove('error', 'solved');
+    if (kind === 'error') this.userStatusEl.classList.add('error');
+    if (kind === 'solved') this.userStatusEl.classList.add('solved');
+    this.userStatusEl.textContent = msg || '';
+  }
+
+  _persistUserGuesses() {
+    try {
+      localStorage.setItem(
+        this._userStorageKey(),
+        JSON.stringify({ guesses: this._userGuesses }),
+      );
+    } catch (_e) {
+      // localStorage may be unavailable (private mode); swallow.
+    }
+  }
+
+  _loadUserGuessesFromStorage() {
+    let saved = null;
+    try {
+      saved = localStorage.getItem(this._userStorageKey());
+    } catch (_e) {
+      return;
+    }
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      const guesses = Array.isArray(parsed?.guesses) ? parsed.guesses : [];
+      for (let i = 0; i < guesses.length; i += 1) {
+        const g = guesses[i];
+        if (!g?.word || !Array.isArray(g.feedback)) continue;
+        this._userGuesses.push(g);
+        // Paint synchronously; no cascade for restored rows.
+        const row = this._userRows[i];
+        if (!row) continue;
+        const upper = g.word.toUpperCase();
+        for (let c = 0; c < WORD_LENGTH; c += 1) {
+          const tile = row[c];
+          tile.textContent = upper[c] ?? '';
+          tile.classList.add('has-letter');
+          if (g.feedback[c]) tile.classList.add(g.feedback[c]);
+        }
+        if (g.solved) {
+          this._userTerminal = true;
+          this._setUserStatus(`Solved in ${i + 1}/${MAX_GUESSES}`, 'solved');
+        }
+      }
+      if (!this._userTerminal && this._userGuesses.length >= MAX_GUESSES) {
+        this._userTerminal = true;
+        this._setUserStatus('Out of guesses', 'error');
+      }
+    } catch (_e) {
+      // Corrupt storage — ignore and start fresh.
+    }
+  }
+
+  _userStorageKey() {
+    return `wordle.userPlay.${this.matchId}`;
   }
 
   _setConnectionStatus(status) {
