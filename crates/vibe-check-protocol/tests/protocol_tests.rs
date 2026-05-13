@@ -429,6 +429,38 @@ fn test_filtered_for_player_steal_phase_psychic_retains_target() {
     );
 }
 
+// Same StealPhase visibility invariant, but with team-0's rotation
+// advanced to player_ids[1]. Guards against a regression that special-
+// cases rotation_idx == 0 (e.g. `(rotation_idx + 1) % team_size` would
+// pass the test above when rotation_idx == 0 + odd team sizes, but
+// would surface here).
+#[test]
+fn test_filtered_for_player_steal_phase_psychic_retains_target_nonzero_rotation() {
+    let mut state = make_test_state(TurnPhase::StealPhase {
+        active_team: 0,
+        stealing_team: 1,
+        clue: "lukewarm".to_string(),
+        active_guess: 0.65,
+        pending_steals: HashMap::new(),
+    });
+    // Move team-0 cluegiver to player_ids[1] = player 1.
+    state.cluegiver_rotation[0] = 1;
+
+    // Player 1 is now the active-team Psychic — must see target.
+    let filtered = state.filtered_for_player(1);
+    assert!(
+        filtered.target.is_some(),
+        "active-team Psychic at non-zero rotation_idx should retain target"
+    );
+
+    // Player 0 is now the active-team teammate — must not.
+    let filtered = state.filtered_for_player(0);
+    assert!(
+        filtered.target.is_none(),
+        "active-team non-Psychic teammate must not see target"
+    );
+}
+
 // ─── 6. filtered_for_player — after resolving, all see target ───
 
 #[test]

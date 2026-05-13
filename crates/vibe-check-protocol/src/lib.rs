@@ -347,8 +347,11 @@ impl VibeCheckState {
                 // cluegiver). So rotation_idx == current_cluegiver_idx for
                 // the duration of CluePhase / GuessPhase / StealPhase. No
                 // off-by-one adjustment needed.
-                let team_state = self.teams.iter().find(|t| t.team_id == team)?;
-                let team_idx = self.teams.iter().position(|t| t.team_id == team)?;
+                let (team_idx, team_state) = self
+                    .teams
+                    .iter()
+                    .enumerate()
+                    .find(|(_, t)| t.team_id == team)?;
                 let rotation_idx = *self.cluegiver_rotation.get(team_idx)?;
                 team_state.player_ids.get(rotation_idx).copied()
             }
