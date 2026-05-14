@@ -340,18 +340,16 @@ impl VibeCheckState {
                 if *active_team != team {
                     return None;
                 }
-                // Resolve via cluegiver_rotation: it records the *next*
-                // cluegiver index per team, so the current round's
-                // cluegiver is the index one behind (mod team size).
-                let team_state = self.teams.iter().find(|t| t.team_id == team)?;
-                let team_idx = self.teams.iter().position(|t| t.team_id == team)?;
-                let next_idx = *self.cluegiver_rotation.get(team_idx)?;
-                let team_size = team_state.player_ids.len();
-                if team_size == 0 {
-                    return None;
-                }
-                let current_idx = (next_idx + team_size - 1) % team_size;
-                team_state.player_ids.get(current_idx).copied()
+                // rotation_idx points at the CURRENT cluegiver throughout the round —
+                // advance_to_next_round increments before publishing the new cluegiver.
+                // Mirrors vibe-check-engine::current_cluegiver().
+                let (team_idx, team_state) = self
+                    .teams
+                    .iter()
+                    .enumerate()
+                    .find(|(_, t)| t.team_id == team)?;
+                let rotation_idx = *self.cluegiver_rotation.get(team_idx)?;
+                team_state.player_ids.get(rotation_idx).copied()
             }
             _ => None,
         }
